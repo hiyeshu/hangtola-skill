@@ -7,7 +7,7 @@
  * [OUTPUT]: 对外提供 夯到拉排行榜 独立编辑器：榜单本体为经典黑框浅色表格（原汁原味，导出即所见），
  *           外壳遵循 Apple 设计系统（#f5f5f7 画布 / #0066cc 主色 / 毛玻璃胶囊 touch bar / 18px 圆角面板），
  *           指针拖拽排序定档（鼠标+触屏统一）、轻点卡片改名、批量图片上传/拖入/粘贴、JSON 导入导出、
- *           干净无水印透明 PNG 导出（3:4 / 4:3 / 16:9 画幅即比例：卡片槽位参与铺满，富余行高均摊）、
+ *           干净无水印透明 PNG 导出（3:4 / 4:3 / 16:9 画幅即比例：卡片槽位参与铺满，档位文字随行高保持光学比例）、
  *           软键盘上浮面板（visualViewport → --kb）、声明条默认为空一键填入、重置重放不刷新
  * [POS]: hangtola 技能的唯一模板资产，由 scripts/render-board.js 校验并注入数据后交付给用户独立运行
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -873,11 +873,37 @@ function wrapText(ctx, text, maxWidth, maxLines) {
   return lines;
 }
 
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function fitTierLabel(ctx, text, maxWidth, rowHeight, frameScale, fontFamily) {
+  let fontSize = clampNumber(rowHeight * 0.18, 32 * frameScale, 52 * frameScale);
+  const minFontSize = 20 * frameScale;
+  while (fontSize > minFontSize) {
+    ctx.font = `800 ${fontSize}px ${fontFamily}`;
+    const lines = wrapText(ctx, text, maxWidth, 2);
+    const lineHeight = fontSize * 1.18;
+    const widestLine = Math.max(0, ...lines.map(line => ctx.measureText(line).width));
+    if (widestLine <= maxWidth && lines.length * lineHeight <= rowHeight - 24 * frameScale) {
+      return { fontSize, lines, lineHeight };
+    }
+    fontSize -= 0.5;
+  }
+  ctx.font = `800 ${minFontSize}px ${fontFamily}`;
+  return {
+    fontSize: minFontSize,
+    lines: wrapText(ctx, text, maxWidth, 2),
+    lineHeight: minFontSize * 1.18,
+  };
+}
+
 async function exportPNG(ratio) {
   const data = serialize();
   const T = THEMES[theme];
   const [W, H] = RATIOS[ratio];
   const u = W / 1600;                                   // 尺寸归一化单位
+  const frameScale = Math.min(W, H) / 1200;             // 画框与说明文字按短边保持光学密度
   const FONT = '"PingFang SC","Microsoft YaHei",sans-serif';
 
   /* 预载图片 */
@@ -893,12 +919,15 @@ async function exportPNG(ratio) {
      卡片参与铺满：槽位随缩放系数 k 变大/变小，二分求「卡片自然撑起的网格高度」
      恰好逼近画幅可用高度的 k——卡片先长到刚好铺满，残差再均摊进行高；
      k 有上下限（防空榜卡片巨大化 / 爆量时过碎），内容仍超高才退回整体缩小。 */
-  const pad = 56 * u, bw = 4 * u;                       // 外边距 / 边框宽
+  const pad = 56 * frameScale, bw = 4 * frameScale;     // 外边距 / 边框宽
   const hasTitle = !!data.title;
-  const titleH = hasTitle ? 96 * u : 0;
-  const footH = data.footnote ? 46 * u : 0;      // 声明条：贴着网格底边的实心黑条
+  const titleH = hasTitle ? 96 * frameScale : 0;
+  const footH = data.footnote ? 52 * frameScale : 0;    // 声明条：贴着网格底边的实心黑条
   const gridW = W - pad * 2;
-  const labelW = Math.round(gridW * 0.135);
+  const labelMeasure = document.createElement('canvas').getContext('2d');
+  labelMeasure.font = `800 ${52 * frameScale}px ${FONT}`;
+  const measuredLabelW = Math.max(...data.tiers.map(t => labelMeasure.measureText(t.label).width)) + 48 * frameScale;
+  const labelW = Math.round(clampNumber(measuredLabelW, gridW * 0.15, gridW * 0.22));
   const availH = H - pad * 2 - titleH - footH;
   const layout = (kk) => {
     const gap = 10 * u * kk, S = 150 * u * kk, capH = 32 * u * kk, slotH = S + capH;
@@ -938,8 +967,8 @@ async function exportPNG(ratio) {
   /* 标题（留空则纯网格） */
   if (hasTitle) {
     ctx.fillStyle = T.ink;
-    ctx.font = `800 ${52 * u}px ${FONT}`;
-    ctx.fillText(data.title, W / 2, pad + titleH / 2 - 12 * u);
+    ctx.font = `800 ${52 * frameScale}px ${FONT}`;
+    ctx.fillText(data.title, W / 2, pad + titleH / 2 - 12 * frameScale);
   }
 
   /* 网格主体 */
@@ -954,11 +983,11 @@ async function exportPNG(ratio) {
     ctx.fillStyle = t.color;
     ctx.fillRect(gx, y, labelW, rh);
     ctx.fillStyle = '#111213';
-    const fs = (t.label.length > 3 ? 30 : 38) * u;
-    ctx.font = `800 ${fs}px ${FONT}`;
-    const labelLines = wrapText(ctx, t.label, labelW - 16 * u, 2);
-    const lh = fs * 1.2, ly0 = y + rh / 2 - (labelLines.length - 1) * lh / 2;
-    labelLines.forEach((ln, k) => ctx.fillText(ln, gx + labelW / 2, ly0 + k * lh));
+    const labelLayout = fitTierLabel(ctx, t.label, labelW - 24 * frameScale, rh, frameScale, FONT);
+    const ly0 = y + rh / 2 - (labelLayout.lines.length - 1) * labelLayout.lineHeight / 2;
+    labelLayout.lines.forEach((line, lineIndex) => {
+      ctx.fillText(line, gx + labelW / 2, ly0 + lineIndex * labelLayout.lineHeight);
+    });
 
     /* 条目：统一竖版框。无名图＝铺满整框；有名图＝上图下名字条；文字＝色块撑满整框 */
     t.items.forEach((it, j) => {
@@ -1018,12 +1047,12 @@ async function exportPNG(ratio) {
     const fy = gy + gridH;
     ctx.fillStyle = T.line;
     ctx.fillRect(gx - bw / 2, fy - bw / 2, gridW + bw, footH + bw / 2);
-    let ffs = 20 * u;
+    let ffs = 22 * frameScale;
     ctx.font = `500 ${ffs}px ${FONT}`;
-    const maxW = gridW - 40 * u, tw = ctx.measureText(data.footnote).width;
+    const maxW = gridW - 40 * frameScale, tw = ctx.measureText(data.footnote).width;
     if (tw > maxW) ctx.font = `500 ${ffs * maxW / tw}px ${FONT}`;
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(data.footnote, gx + gridW / 2, fy + footH / 2 + 1 * u);
+    ctx.fillText(data.footnote, gx + gridW / 2, fy + footH / 2 + 1 * frameScale);
   }
 
   ctx.restore();

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node.js 标准库、skills/hangtola 技能目录、Skill 局部 ESM 声明与根 package.json 构建约定
- * [OUTPUT]: 对外提供 npm run check，校验 Skill 元数据、RedSkill 扩展名、模块语义、单名称 schema、导出比例、资源引用与部署隔离
- * [POS]: 仓库级质量门，阻止不兼容脚本、数据契约漂移或部署站点外壳进入公开 Skill 真相源
+ * [OUTPUT]: 对外提供 npm run check，校验 Skill 元数据、RedSkill 扩展名、模块语义、导出光学比例、资源引用与部署隔离
+ * [POS]: 仓库级质量门，阻止不兼容脚本、数据契约或跨画幅视觉尺度漂移进入公开 Skill 真相源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -69,6 +69,13 @@ assert(
     && template.includes('for (let i = 0; i < 24; i++)')
     && template.includes('const extra = (availH - gridH) / rowHeights.length;'),
   '导出布局必须保留 minitool 的单行名字槽位、二分铺满与行高残差均摊',
+);
+assert(
+  template.includes('const frameScale = Math.min(W, H) / 1200;')
+    && template.includes('clampNumber(rowHeight * 0.18, 32 * frameScale, 52 * frameScale)')
+    && template.includes('fitTierLabel(ctx, t.label, labelW - 24 * frameScale, rh, frameScale, FONT)')
+    && template.includes('clampNumber(measuredLabelW, gridW * 0.15, gridW * 0.22)'),
+  '档位文字与标签列必须按短边和真实行高保持跨画幅光学比例',
 );
 assert(!template.includes('hiyeshu/hangtola-skill'), 'GitHub 部署入口不得进入 Skill 模板');
 assert(!template.includes('copy-skill'), '部署站点控件不得进入 Skill 模板');
