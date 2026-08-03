@@ -65,7 +65,7 @@ const SITE_MARKUP = `
     </svg>
   </a>
   <button class="site-meta-copy" id="copy-skill" type="button"
-          title="复制安装命令和提示词" aria-describedby="copy-skill-status">
+          title="复制 Skill 安装命令" aria-describedby="copy-skill-status">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
       <rect x="8" y="8" width="11" height="11" rx="2"/>
       <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
@@ -82,16 +82,7 @@ const SITE_SCRIPT = `
   if (!button) return;
   const label = button.querySelector('[data-copy-label]');
   const status = document.querySelector('#copy-skill-status');
-  const usage = [
-    'Hangtola Skill',
-    'https://github.com/hiyeshu/hangtola-skill',
-    '',
-    '安装：',
-    'npx skills add hiyeshu/hangtola-skill --skill hangtola',
-    '',
-    '提示词：',
-    '用 $hangtola 把我上传的图片和备注排成夯到拉。'
-  ].join('\\n');
+  const installCommand = 'npx skills add hiyeshu/hangtola-skill --skill hangtola';
 
   async function copyText(text) {
     if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -110,9 +101,9 @@ const SITE_SCRIPT = `
   button.addEventListener('click', async () => {
     button.classList.remove('is-copied', 'is-error');
     try {
-      await copyText(usage);
+      await copyText(installCommand);
       label.textContent = '已复制';
-      status.textContent = 'Skill 安装命令和提示词已复制';
+      status.textContent = 'Skill 安装命令已复制';
       button.classList.add('is-copied');
     } catch {
       label.textContent = '复制失败';
