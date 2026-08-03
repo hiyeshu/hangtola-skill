@@ -75,7 +75,7 @@ description: >
 先把榜单数据写成 JSON，再运行技能自带脚本：
 
 ```bash
-node <skill-directory>/scripts/render-board.mjs board.json 夯到拉-主题.html
+node <skill-directory>/scripts/render-board.js board.json 夯到拉-主题.html
 ```
 
 脚本会校验 schema、把本地图片嵌入为 `data:` URL，并安全注入 `assets/template.html`。不要手工拼接 base64 或替换 `<script>`。

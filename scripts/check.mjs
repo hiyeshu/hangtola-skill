@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 Node.js 标准库、skills/hangtola 技能目录与 package.json 构建约定
- * [OUTPUT]: 对外提供 npm run check，校验 Skill 元数据、单名称 schema、三种同构导出比例、资源引用、模板语法、部署隔离与 skills.sh 可发现结构
- * [POS]: 仓库级质量门，保护 Skill 真相源不被短评死字段、导出布局漂移或部署站点外壳污染，并维持开放分发结构
+ * [INPUT]: 依赖 Node.js 标准库、skills/hangtola 技能目录、Skill 局部 ESM 声明与根 package.json 构建约定
+ * [OUTPUT]: 对外提供 npm run check，校验 Skill 元数据、RedSkill 扩展名、模块语义、单名称 schema、导出比例、资源引用与部署隔离
+ * [POS]: 仓库级质量门，阻止不兼容脚本、数据契约漂移或部署站点外壳进入公开 Skill 真相源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { readFile, access } from 'node:fs/promises';
+import { readFile, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
 
@@ -13,10 +13,11 @@ const ROOT = process.cwd();
 const SKILL_DIR = path.join(ROOT, 'skills/hangtola');
 const REQUIRED_FILES = [
   'SKILL.md',
+  'package.json',
   'agents/openai.yaml',
   'assets/template.html',
   'references/input-contract.md',
-  'scripts/render-board.mjs',
+  'scripts/render-board.js',
 ];
 
 function assert(condition, message) {
@@ -27,13 +28,34 @@ for (const relativePath of REQUIRED_FILES) {
   await access(path.join(SKILL_DIR, relativePath));
 }
 
+async function listFiles(directory, prefix = '') {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const relativePath = path.join(prefix, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await listFiles(path.join(directory, entry.name), relativePath));
+    } else {
+      files.push(relativePath);
+    }
+  }
+  return files;
+}
+
+const skillFiles = await listFiles(SKILL_DIR);
+assert(!skillFiles.some((file) => file.endsWith('.mjs')), '公开 Skill 包不得包含 RedSkill 不接收的 .mjs 文件');
+
 const skill = await readFile(path.join(SKILL_DIR, 'SKILL.md'), 'utf8');
 assert(skill.startsWith('---\n'), 'SKILL.md 缺少 YAML frontmatter');
 assert(/^name:\s*hangtola$/m.test(skill), 'Skill name 必须是 hangtola');
 assert(/^description:\s*>$/m.test(skill), 'Skill description 必须存在');
 assert(skill.includes('references/input-contract.md'), 'SKILL.md 必须路由多模态输入契约');
-assert(skill.includes('scripts/render-board.mjs'), 'SKILL.md 必须使用确定性渲染脚本');
+assert(skill.includes('scripts/render-board.js'), 'SKILL.md 必须使用 RedSkill 兼容的确定性渲染脚本');
 assert(!skill.includes('caption'), 'SKILL.md 不得保留短评字段');
+
+const skillPackageJson = JSON.parse(await readFile(path.join(SKILL_DIR, 'package.json'), 'utf8'));
+assert(skillPackageJson.private === true, 'Skill 局部 package.json 必须保持 private');
+assert(skillPackageJson.type === 'module', 'Skill 局部 package.json 必须显式声明 ESM，避免 .js 被误判为 CommonJS');
 
 const template = await readFile(path.join(SKILL_DIR, 'assets/template.html'), 'utf8');
 assert(template.includes('<script id="hangtola-data" type="application/json">{}</script>'), '模板注入点必须保持空对象');
@@ -56,7 +78,7 @@ const scripts = [...template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/
 for (const source of scripts) new vm.Script(source);
 
 const inputContract = await readFile(path.join(SKILL_DIR, 'references/input-contract.md'), 'utf8');
-const renderer = await readFile(path.join(SKILL_DIR, 'scripts/render-board.mjs'), 'utf8');
+const renderer = await readFile(path.join(SKILL_DIR, 'scripts/render-board.js'), 'utf8');
 assert(!inputContract.includes('caption'), '输入契约不得保留短评字段');
 assert(!renderer.includes('caption'), '确定性渲染器不得保留短评字段');
 

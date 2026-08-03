@@ -40,10 +40,11 @@ CLI 会把同一份 Skill 安装到 Codex、Claude Code、Cursor、GitHub Copilo
 skills/
 └── hangtola/
     ├── SKILL.md                  # Agent 工作流与数据契约
+    ├── package.json              # 将 Skill 内 .js 明确为 ESM
     ├── agents/openai.yaml        # Agent UI 元数据
     ├── assets/template.html      # 独立编辑器与部署真相源
     ├── references/input-contract.md
-    └── scripts/render-board.mjs  # JSON + 本地图片 → 独立 HTML
+    └── scripts/render-board.js   # RedSkill 兼容：JSON + 本地图片 → 独立 HTML
 scripts/check.mjs                 # 仓库质量门
 scripts/build-site.mjs            # 组合部署外壳，不修改 Skill 模板
 site/                             # 带站点专属入口的构建产物，不入 Git
@@ -62,5 +63,5 @@ npm run deploy  # 构建并部署 Cloudflare Worker 静态资产
 手工生成一份榜单：
 
 ```bash
-node skills/hangtola/scripts/render-board.mjs board.json output.html
+node skills/hangtola/scripts/render-board.js board.json output.html
 ```

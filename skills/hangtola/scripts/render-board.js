@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node.js 标准库、榜单 JSON、../assets/template.html 与 JSON 中可选的本地图片路径
  * [OUTPUT]: 对外提供 CLI，将校验并归一化后的榜单和离线图片安全嵌入独立 HTML
- * [POS]: hangtola 技能的确定性生成边界，替代 Agent 手工拼接 HTML 与 base64
+ * [POS]: hangtola 技能的 RedSkill 兼容确定性生成边界，模块语义由上级 package.json 固定，替代 Agent 手工拼接 HTML 与 base64
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -33,7 +33,7 @@ const MIME_BY_EXTENSION = new Map([
 
 function usage() {
   return [
-    '用法: node render-board.mjs <board.json> <output.html> [--template <template.html>]',
+    '用法: node render-board.js <board.json> <output.html> [--template <template.html>]',
     '',
     'image 字段可使用 data: URL、相对 board.json 的图片路径或绝对路径。',
     'HTTP(S) 图片会被拒绝，确保生成物可离线运行。',
