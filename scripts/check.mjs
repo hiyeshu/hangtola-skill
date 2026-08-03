@@ -37,7 +37,7 @@ assert(skill.includes('scripts/render-board.mjs'), 'SKILL.md 必须使用确定�
 const template = await readFile(path.join(SKILL_DIR, 'assets/template.html'), 'utf8');
 assert(template.includes('<script id="hangtola-data" type="application/json">{}</script>'), '模板注入点必须保持空对象');
 assert(!template.includes('hiyeshu/hangtola-skill'), 'GitHub 部署入口不得进入 Skill 模板');
-assert(!template.includes('复制 Skill 用法'), '部署站点控件不得进入 Skill 模板');
+assert(!template.includes('copy-skill'), '部署站点控件不得进入 Skill 模板');
 const scripts = [...template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
   .map((match) => match[1])
   .filter((source) => source.trim() && source.trim() !== '{}');

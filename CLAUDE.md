@@ -11,7 +11,7 @@ site/ - npm run build 生成的部署产物，含站点专属外壳，永不手�
 skills/hangtola/SKILL.md - Skill 入口：多模态输入归一化、维度、调研、定档、呈现参数、生成与交付
 skills/hangtola/assets/template.html - Skill 生成 HTML 的干净编辑器模板真相源，不含部署站点推广控件
 skills/hangtola/scripts/render-board.mjs - 校验榜单 JSON、嵌入本地图片并安全注入模板
-scripts/build-site.mjs - 从干净模板组合 hangtola.app，注入 GitHub 地址与 Skill 用法复制入口
+scripts/build-site.mjs - 从干净模板组合 hangtola.app，注入 GitHub 图标与 Skill 复制入口
 README.md - GitHub 与 skills.sh 用户入口、通用安装命令和开发说明
 package.json - check/build/deploy 边界；build 经站点组合器生成 site/index.html
 wrangler.toml - assets-only Worker「hangtola」与 hangtola.app 自定义域配置
@@ -32,6 +32,6 @@ HTML 生成必须经过 render-board.mjs，禁止 Agent 手工拼 base64 或替�
 2026-08-03 - 迁移至 skills.sh 兼容目录；加入多图输入、公开短评、纯文字智能配色、确定性渲染脚本与 IndexedDB。
 2026-08-03 - 同步 minitool-build 通用改进：软键盘上浮、安全区、无刷新重置、满幅比例导出。
 2026-08-03 - 产品化并部署 hangtola.app：透明 PNG、统一卡片框、深浅色与可编辑标题/声明。
-2026-08-03 - 分离部署站点外壳：右上角 GitHub 地址与 Skill 用法复制仅注入 hangtola.app，Skill 模板保持干净。
+2026-08-03 - 分离部署站点外壳：右上角 GitHub 图标与 Skill 复制仅注入 hangtola.app，Skill 模板保持干净。
 
 法则: 极简·稳定·导航·版本精确
