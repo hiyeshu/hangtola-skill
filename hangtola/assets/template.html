@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!--
+/**
+ * [INPUT]: 依赖 #hangtola-data 内嵌 JSON（由 hangtola 技能注入），依赖浏览器原生 Pointer Events / Canvas / FileReader / localStorage
+ * [OUTPUT]: 对外提供 夯到拉排行榜 独立编辑器：榜单本体为经典黑框浅色表格（原汁原味，导出即所见），
+ *           外壳遵循 Apple 设计系统（#f5f5f7 画布 / #0066cc 主色 / 毛玻璃胶囊 touch bar / 18px 圆角面板），
+ *           指针拖拽定档（鼠标+触屏统一）、轻点卡片操作单、图片上传/粘贴、JSON 导入导出、
+ *           干净无水印 PNG 导出（3:4 / 4:3 / 16:9，标题留空则纯网格）
+ * [POS]: hangtola 技能的唯一模板资产，被 SKILL.md 工作流复制并注入数据后交付给用户独立运行
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>夯到拉 Hangtola — 万物皆可排</title>
+<meta name="description" content="夯到拉排行榜：把一切排成 夯 / 顶级 / 人上人 / NPC / 拉完了。单文件离线运行，拖拽定档，导出干净透明 PNG。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23fb2018'/><text x='50' y='74' font-size='64' font-weight='700' text-anchor='middle' fill='%23fff' font-family='PingFang SC,Microsoft YaHei,sans-serif'>夯</text></svg>">
+<style>
+/* ============================================================
+   基础：浅色经典主题（对齐参考图）
+   ============================================================ */
+:root {
+  /* 外壳：Apple 设计系统 浅色（画布 #f5f5f7 · 墨 #1d1d1f · 主色 #0066cc） */
+  --page: #f5f5f7;
+  --ink: #1d1d1f;
+  --dim: #86868b;
+  --accent: #0066cc;
+  --accent-focus: #0071e3;
+  --glass: rgba(255, 255, 255, 0.72);
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-btn: #f5f5f7;
+  --panel-btn-h: #ebebef;
+  --input-bg: #fff;
+  --input-bd: #d2d2d7;
+  --pool-bg: #fff;
+  --pool-bd: #d2d2d7;
+  --mask: rgba(0, 0, 0, 0.12);
+  /* 榜单本体（经典 tier list，随模式换肤） */
+  --row: #d2d4d8;
+  --grid-ink: #111213;
+  --chip-bg: #1d1d1f;       /* 文字卡：反色墨块，高对比 */
+  --chip-ink: #fff;
+  --thumb-ring: rgba(17, 18, 19, 0.28);
+  --border-w: 2.5px;
+}
+:root[data-theme="dark"] {
+  /* 外壳：Apple 深色（iOS 深空灰 · 主色 #0a84ff） */
+  --page: #161617;
+  --ink: #f5f5f7;
+  --dim: #86868b;
+  --accent: #0a84ff;
+  --accent-focus: #409cff;
+  --glass: rgba(28, 28, 30, 0.72);
+  --panel-bg: rgba(28, 28, 30, 0.92);
+  --panel-btn: #2c2c2e;
+  --panel-btn-h: #3a3a3c;
+  --input-bg: #1c1c1e;
+  --input-bd: #3a3a3c;
+  --pool-bg: #1c1c1e;
+  --pool-bd: #3a3a3c;
+  --mask: rgba(0, 0, 0, 0.4);
+  --row: #3a3a3e;
+  --grid-ink: #0b0b0c;
+  --chip-bg: #f5f5f7;
+  --chip-ink: #111213;
+  --thumb-ring: rgba(0, 0, 0, 0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--page); color: var(--ink); font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+body { max-width: 1100px; margin: 0 auto; padding: 28px 20px 140px; -webkit-tap-highlight-color: transparent; }
+
+/* ============================================================
+   标题
+   ============================================================ */
+#board-title {
+  text-align: center; font-size: clamp(22px, 4.5vw, 34px); font-weight: 700;
+  letter-spacing: -0.374px; outline: none; margin-bottom: 20px; min-height: 1em;
+}
+#board-title:empty::before { content: "点击输入标题（留空则导出无标题）"; color: var(--dim); font-weight: 500; font-size: 0.6em; }
+
+/* ============================================================
+   榜单表格：黑细边框连体网格
+   ============================================================ */
+#board { border: var(--border-w) solid var(--grid-ink); background: var(--row); }
+.tier { display: flex; border-bottom: var(--border-w) solid var(--grid-ink); }
+.tier:last-child { border-bottom: none; }
+.tier-label {
+  flex: 0 0 clamp(76px, 14vw, 150px);
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(17px, 2.8vw, 27px); font-weight: 800; color: #111213;
+  text-align: center; line-height: 1.25; padding: 10px 6px;
+  border-right: var(--border-w) solid var(--grid-ink);
+  outline: none; word-break: break-all;
+}
+.tier-items {
+  flex: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px;
+  min-height: clamp(100px, 19vw, 130px); align-content: flex-start;
+}
+.tier-items.drag-over { background: rgba(255, 255, 255, 0.45); }
+/* 底部声明条：与网格外框咬合的黑底白字，是表格的最后一行；清空则不存在 */
+#board-footnote {
+  background: var(--grid-ink); color: #fff; outline: none;
+  padding: 9px 16px; text-align: center; line-height: 1.4;
+  font-size: clamp(11px, 1.7vw, 13px); font-weight: 500; letter-spacing: 0.2px;
+}
+#board-footnote:empty { display: none; }
+
+/* ============================================================
+   备选区
+   ============================================================ */
+#pool-section { margin-top: 26px; }
+#pool-section h2 { font-size: 17px; color: var(--ink); font-weight: 600; letter-spacing: -0.4px; margin-bottom: 10px; }
+#pool-wrap { border: 1.5px dashed var(--pool-bd); border-radius: 18px; background: var(--pool-bg); }
+#pool-wrap .tier-items { min-height: 84px; }
+
+/* ============================================================
+   条目卡片
+   ============================================================ */
+/* 统一框：所有卡片同一个竖版框（W × W+cap，约 4:5），内容自适应填充 */
+body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
+.card-item {
+  position: relative; width: var(--card-w); height: calc(var(--card-w) + var(--cap-h));
+  cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: none;
+  display: flex; flex-direction: column;
+  border-radius: 3px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--thumb-ring);
+}
+/* 文字卡：色块撑满整框（默认反色墨块，可选 iOS 系统色），字号随字数自适应 */
+.card-item.is-txt { background: var(--chip-bg); align-items: center; justify-content: center; }
+.card-item .txt {
+  padding: 5px; font-weight: 800; text-align: center;
+  color: var(--chip-ink); word-break: break-all; line-height: 1.3; max-height: 100%; overflow: hidden;
+}
+.txt.fs-xl { font-size: clamp(20px, 4vw, 27px); }
+.txt.fs-l  { font-size: clamp(16px, 3.2vw, 21px); }
+.txt.fs-m  { font-size: clamp(13px, 2.4vw, 16px); }
+.txt.fs-s  { font-size: clamp(11px, 2vw, 13px); }
+/* 图片卡：无名则图铺满整框；有名则框内上图下名字条（名字条属于框） */
+.card-item .thumb { flex: 1; min-height: 0; overflow: hidden; background: #fff; }
+.card-item .thumb img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; }
+.card-item .name {
+  height: var(--cap-h); line-height: var(--cap-h); font-size: clamp(11px, 2vw, 13px); font-weight: 600;
+  background: var(--pool-bg); color: var(--ink); text-align: center; padding: 0 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-item.drag-source { opacity: 0.25; }
+#drag-ghost {
+  position: fixed; z-index: 300; pointer-events: none;
+  transform: translate(-50%, -50%) scale(1.08); opacity: 0.92;
+  filter: drop-shadow(0 10px 24px rgba(20, 30, 50, 0.35));
+}
+
+/* ============================================================
+   底部悬浮 Touch Bar（cardtoday 基因：白玻璃 · 全圆角 · 低对比）
+   ============================================================ */
+#dock {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 200; display: flex; align-items: center; gap: 2px;
+  padding: 6px; border-radius: 9999px;
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04),
+              0 12px 32px rgba(0, 0, 0, 0.12);
+}
+#dock button {
+  border: none; background: transparent; color: var(--ink);
+  font-size: 14px; font-weight: 500; font-family: inherit; letter-spacing: -0.224px;
+  padding: 11px 16px; border-radius: 9999px; cursor: pointer; white-space: nowrap;
+  transition: background 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+#dock button:hover { background: rgba(127, 127, 132, 0.14); }
+#dock button:active { background: rgba(127, 127, 132, 0.24); }
+#dock button.primary { background: var(--accent); color: #fff; font-weight: 600; }
+#dock button.primary:hover { background: var(--accent-focus); }
+
+/* ============================================================
+   弹层：面板 + 遮罩（touch bar 的延伸面）
+   ============================================================ */
+#mask { position: fixed; inset: 0; z-index: 240; background: var(--mask); }
+#panel {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: 250; width: min(420px, calc(100vw - 32px));
+  background: var(--panel-bg);
+  backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-radius: 18px; padding: 17px;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.06),
+              0 24px 60px rgba(0, 0, 0, 0.18);
+  animation: panel-in 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes panel-in { from { opacity: 0; transform: translateX(-50%) translateY(12px); } }
+#panel h3 { font-size: 12px; font-weight: 600; color: var(--dim); letter-spacing: 0.6px; margin-bottom: 12px; text-transform: uppercase; }
+#panel .p-row { display: flex; gap: 8px; }
+#panel input[type="text"], #panel textarea {
+  flex: 1; border: 1px solid var(--input-bd); border-radius: 11px; padding: 11px 14px;
+  font-size: 15px; letter-spacing: -0.224px; font-family: inherit; outline: none; background: var(--input-bg); color: var(--ink);
+}
+#panel input[type="text"]:focus, #panel textarea:focus { border-color: var(--accent-focus); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18); }
+#panel textarea { resize: none; height: 84px; line-height: 1.47; }
+.p-btn {
+  border: none; border-radius: 11px; padding: 11px 18px; font-size: 15px; font-weight: 500;
+  letter-spacing: -0.224px; font-family: inherit; cursor: pointer; background: var(--panel-btn); color: var(--ink);
+  transition: background 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.p-btn:hover { background: var(--panel-btn-h); }
+.p-btn.dark { background: var(--accent); color: #fff; font-weight: 600; }
+.p-btn.dark:hover { background: var(--accent-focus); }
+.p-btn.danger { color: #ff3b30; }
+.p-btn.wide { display: block; width: 100%; text-align: left; margin-top: 8px; }
+.p-btn.wide:first-of-type { margin-top: 0; }
+/* 操作单里的底色圆点（仅文字卡）：默认墨块 + iOS 系统色 */
+.color-dots { display: flex; gap: 8px; margin-bottom: 12px; }
+.color-dots .dot {
+  width: 26px; height: 26px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.color-dots .dot:hover { transform: scale(1.12); }
+.color-dots .dot.auto { background: var(--chip-bg); }
+.color-dots .dot.now { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 操作单里的定档色块：色即是档 */
+.tier-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tier-chips .chip {
+  flex: 1 1 30%; min-width: 62px; border: none; border-radius: 11px; padding: 11px 4px;
+  font-size: 13px; font-weight: 700; font-family: inherit; color: #111213; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.tier-chips .chip:hover { transform: scale(1.04); }
+.tier-chips .chip.now { box-shadow: inset 0 0 0 2px var(--accent); }
+.tier-chips .pool-chip { background: var(--panel-btn); color: var(--ink); }
+.ratio-grid { display: flex; gap: 8px; }
+.ratio-grid .p-btn { flex: 1; text-align: center; padding: 14px 0; }
+.ratio-grid small { display: block; font-weight: 500; color: var(--dim); margin-top: 3px; font-size: 11px; }
+.hidden-input { display: none; }
+
+.hint { color: var(--dim); font-size: 13px; letter-spacing: -0.08px; margin-top: 24px; line-height: 1.7; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1 id="board-title" contenteditable="true" spellcheck="false"></h1>
+
+<main id="board"></main>
+<p id="board-footnote" contenteditable="true" spellcheck="false">以上内容纯属个人主观体验，不代表任何客观评价，仅供参考</p>
+
+<section id="pool-section">
+  <h2>待定</h2>
+  <div id="pool-wrap"><div class="tier-items" data-tier="pool"></div></div>
+</section>
+
+<p class="hint">
+  拖到档位上，就定好了。轻点卡片改名或删除，标题和档位名点开就能改。<br>
+  图片可以拖进来，也可以直接粘贴。<br>
+  改动自动保存在这台设备。导出一份 JSON 放进项目的 .hangtola/，AI 就能接着排。
+</p>
+
+<nav id="dock">
+  <button data-act="text">＋ 文字</button>
+  <button data-act="image">＋ 图片</button>
+  <button data-act="export" class="primary">导出图片</button>
+  <button data-act="theme" id="theme-btn" aria-label="切换深浅色">☾</button>
+  <button data-act="more" aria-label="更多">⋯</button>
+</nav>
+
+<input type="file" id="file-input" class="hidden-input" accept="image/*" multiple>
+<input type="file" id="json-input" class="hidden-input" accept="application/json,.json">
+
+<!-- hangtola 技能在此注入榜单数据（JSON），保持独立运行时为空对象 -->
+<script id="hangtola-data" type="application/json">{}</script>
+
+<script>
+/* ============================================================
+   常量与状态
+   ============================================================ */
+const TIER_DEFS = [
+  { key: 'hang',  label: '夯',     color: '#fb2018' },
+  { key: 'top',   label: '顶级',   color: '#ffa640' },
+  { key: 'upper', label: '人上人', color: '#fbf600' },
+  { key: 'npc',   label: 'NPC',    color: '#fdf1c7' },
+  { key: 'la',    label: '拉完了', color: '#ffffff' }
+];
+const RATIOS = { '3:4': [1200, 1600], '4:3': [1600, 1200], '16:9': [1920, 1080] };
+/* 导出配色随当前模式（底为透明，只管网格与文字）：浅色 = 参考图原味，深色 = 经典暗版 */
+const THEMES = {
+  light: { row: '#d2d4d8', line: '#111213', ink: '#111213', chipBg: '#1d1d1f', chipInk: '#ffffff', dim: '#6e7480', capBg: '#ffffff', ring: 'rgba(17,18,19,0.28)' },
+  dark:  { row: '#3a3a3e', line: '#0b0b0c', ink: '#f5f5f7', chipBg: '#f5f5f7', chipInk: '#111213', dim: '#98989f', capBg: '#1c1c1e', ring: 'rgba(0,0,0,0.5)' }
+};
+/* 文字卡可选底色：iOS 系统色，与 Apple 外壳同源；null = 默认墨块（随主题反色） */
+const CHIP_COLORS = ['#ffffff', '#ff453a', '#ff9f0a', '#ffd60a', '#30d158', '#0a84ff', '#bf5af2'];
+const items = new Map();          // id -> { text, image, note, color }
+let boardId = 'default';
+let nextId = 1;
+/* 底部声明：默认即有，用户可改；清空则整条消失（DOM 即真相，与标题/档位名同源） */
+const DEFAULT_FOOTNOTE = document.querySelector('#board-footnote').textContent.trim();
+
+const $ = (sel) => document.querySelector(sel);
+const board = $('#board');
+
+/* ============================================================
+   构建榜单骨架（档位名可编辑）
+   ============================================================ */
+for (const t of TIER_DEFS) {
+  const row = document.createElement('div');
+  row.className = 'tier';
+  row.innerHTML = `<div class="tier-label" contenteditable="true" spellcheck="false"
+                        style="background:${t.color}" data-key="${t.key}">${t.label}</div>
+                   <div class="tier-items" data-tier="${t.key}"></div>`;
+  board.appendChild(row);
+}
+
+/* ============================================================
+   数据载入：内嵌 JSON vs 本地自动保存，savedAt 新者胜
+   ============================================================ */
+function loadInitialData() {
+  let embedded = {};
+  try { embedded = JSON.parse($('#hangtola-data').textContent || '{}'); } catch (e) {}
+  boardId = embedded.id || 'default';
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('hangtola:' + boardId) || 'null'); } catch (e) {}
+  const eTime = Date.parse(embedded.savedAt || 0) || 0;
+  const sTime = saved ? (Date.parse(saved.savedAt || 0) || 1) : -1;
+  applyData((sTime >= eTime && saved) ? saved : embedded);
+}
+
+function applyData(data) {
+  if (!data || typeof data !== 'object') return;
+  items.clear();
+  document.querySelectorAll('.tier-items').forEach(el => el.innerHTML = '');
+  if (typeof data.title === 'string') $('#board-title').textContent = data.title;
+  /* 字段缺失 = 用默认声明；显式空串 = 用户主动清掉，尊重之 */
+  $('#board-footnote').textContent =
+    typeof data.footnote === 'string' ? data.footnote.trim() : DEFAULT_FOOTNOTE;
+  const buckets = {};
+  (data.tiers || []).forEach(t => {
+    buckets[t.key] = t.items || [];
+    const labelEl = document.querySelector(`.tier-label[data-key="${t.key}"]`);
+    if (labelEl && t.label) labelEl.textContent = t.label;
+  });
+  buckets.pool = data.pool || [];
+  for (const [tierKey, list] of Object.entries(buckets)) {
+    const container = document.querySelector(`.tier-items[data-tier="${tierKey}"]`);
+    if (!container) continue;
+    for (const it of list) {
+      const id = 'i' + (nextId++);
+      items.set(id, { text: it.text || '', image: it.image || null, note: it.note || '', color: it.color || null });
+      container.appendChild(buildCard(id));
+    }
+  }
+}
+
+/* ============================================================
+   序列化与自动保存
+   ============================================================ */
+function serialize() {
+  const readContainer = (key) =>
+    [...document.querySelectorAll(`.tier-items[data-tier="${key}"] .card-item`)]
+      .map(el => { const it = items.get(el.dataset.id); return { text: it.text, image: it.image, note: it.note, color: it.color }; });
+  return {
+    id: boardId,
+    title: $('#board-title').textContent.trim(),
+    footnote: $('#board-footnote').textContent.trim(),
+    savedAt: new Date().toISOString(),
+    dimensions: window.__hangtolaDims || [],
+    tiers: TIER_DEFS.map(t => ({
+      key: t.key,
+      label: document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent.trim() || t.label,
+      color: t.color,
+      items: readContainer(t.key)
+    })),
+    pool: readContainer('pool')
+  };
+}
+
+let saveTimer = null;
+function autosave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem('hangtola:' + boardId, JSON.stringify(serialize())); }
+    catch (e) { console.warn('自动保存失败（图片可能超出 localStorage 限额）', e); }
+  }, 400);
+}
+$('#board-title').addEventListener('input', autosave);
+$('#board-footnote').addEventListener('input', autosave);
+/* contenteditable 清空后常残留 <br>，:empty 便失效——失焦时抹平，让空的真正消失 */
+for (const sel of ['#board-title', '#board-footnote']) {
+  $(sel).addEventListener('blur', (e) => {
+    if (!e.target.textContent.trim()) { e.target.textContent = ''; autosave(); }
+  });
+}
+document.body.addEventListener('input', (e) => { if (e.target.classList.contains('tier-label')) autosave(); });
+
+/* ============================================================
+   卡片：创建 / 刷新 / 新增
+   ============================================================ */
+/* 相对亮度：决定彩色底上用黑字还是白字 */
+function lum(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+}
+/* 字号随字数自适应：字少则大，字多则小 */
+function fsClass(t) { const n = t.length; return n <= 2 ? 'fs-xl' : n <= 4 ? 'fs-l' : n <= 8 ? 'fs-m' : 'fs-s'; }
+
+function buildCard(id) {
+  const it = items.get(id);
+  const el = document.createElement('div');
+  el.dataset.id = id;
+  el.title = it.text;
+  if (it.image) {
+    el.className = 'card-item is-img';
+    el.innerHTML = `<div class="thumb"><img src="${it.image}" alt=""></div>` +
+                   (it.text ? `<div class="name"></div>` : '');
+    if (it.text) el.querySelector('.name').textContent = it.text;
+  } else {
+    el.className = 'card-item is-txt';
+    el.innerHTML = `<div class="txt ${fsClass(it.text)}"></div>`;
+    const tx = el.querySelector('.txt');
+    tx.textContent = it.text;
+    if (it.color) {
+      el.style.background = it.color;
+      tx.style.color = lum(it.color) > 0.62 ? '#111213' : '#fff';
+    }
+  }
+  return el;
+}
+
+/* 文件名"像人话"才带入（含中文或短英文词），流水号一律不要 */
+function guessName(filename) {
+  const base = filename.replace(/\.[^.]+$/, '').trim();
+  if (!base || base.length > 14) return '';
+  if (/^(IMG|DSC|DCIM|Screenshot|Snipaste|WeChat|Pasted|image|photo|截屏|截图|微信图片)/i.test(base)) return '';
+  const meat = base.replace(/[\d_\-\s.()]/g, '');
+  if (meat.length < 2) return '';
+  return base;
+}
+function refreshCard(el) { const n = buildCard(el.dataset.id); el.replaceWith(n); return n; }
+function addItem(text, image) {
+  const id = 'i' + (nextId++);
+  items.set(id, { text: text || '', image: image || null, note: '', color: null });
+  document.querySelector('.tier-items[data-tier="pool"]').appendChild(buildCard(id));
+  autosave();
+}
+
+/* ============================================================
+   指针拖拽（鼠标 + 触屏统一）：移动即拖，原地轻点开操作单
+   ============================================================ */
+let drag = null;   // { id, el, ghost, started, sx, sy, hold }
+document.body.addEventListener('pointerdown', (e) => {
+  const card = e.target.closest('.card-item');
+  if (!card || e.button > 0) return;
+  drag = { id: card.dataset.id, el: card, ghost: null, started: false, sx: e.clientX, sy: e.clientY };
+  /* 长按（450ms 未拖动）＝ 轻点的同义词：打开同一张操作单 */
+  drag.hold = setTimeout(() => {
+    if (!drag || drag.started) return;
+    const el = drag.el; drag = null;
+    if (navigator.vibrate) navigator.vibrate(10);
+    openCardSheet(el);
+  }, 450);
+});
+document.body.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) return;
+    clearTimeout(drag.hold);
+    drag.started = true;
+    const g = drag.el.cloneNode(true);
+    g.id = 'drag-ghost';
+    const r = drag.el.getBoundingClientRect();
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    document.body.appendChild(g);
+    drag.ghost = g;
+    drag.el.classList.add('drag-source');
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX + 'px';
+  drag.ghost.style.top = e.clientY + 'px';
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tier-items');
+  if (zone) zone.classList.add('drag-over');
+});
+function endDrag(e, cancelled) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  clearTimeout(d.hold);
+  if (!d.started) { if (!cancelled) openCardSheet(d.el); return; }
+  d.ghost?.remove();
+  d.el.classList.remove('drag-source');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  if (cancelled) return;
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const zone = under?.closest('.tier-items');
+  if (!zone) return;
+  const targetCard = under?.closest('.card-item');
+  if (targetCard && targetCard !== d.el) zone.insertBefore(d.el, targetCard);
+  else zone.appendChild(d.el);
+  autosave();
+}
+document.body.addEventListener('pointerup', (e) => endDrag(e, false));
+document.body.addEventListener('pointercancel', (e) => endDrag(e, true));
+/* 右键（桌面端）＝ 轻点的同义词：打开同一张操作单 */
+document.body.addEventListener('contextmenu', (e) => {
+  const card = e.target.closest('.card-item');
+  if (!card) return;
+  e.preventDefault();
+  drag = null;
+  openCardSheet(card);
+});
+
+/* ============================================================
+   弹层系统：touch bar 的延伸面板
+   ============================================================ */
+function closePanel() { $('#mask')?.remove(); $('#panel')?.remove(); }
+function openPanel(html) {
+  closePanel();
+  const mask = document.createElement('div'); mask.id = 'mask';
+  mask.addEventListener('pointerdown', closePanel);
+  const panel = document.createElement('div'); panel.id = 'panel';
+  panel.innerHTML = html;
+  document.body.append(mask, panel);
+  return panel;
+}
+
+/* ---- ＋ 文字 ---- */
+function openTextPanel() {
+  const p = openPanel(`
+    <h3>添加文字条目</h3>
+    <div class="p-row">
+      <input type="text" id="p-text" placeholder="名称，支持逗号 / 顿号批量" autocomplete="off">
+      <button class="p-btn dark" id="p-text-ok">添加</button>
+    </div>`);
+  const input = p.querySelector('#p-text');
+  input.focus();
+  const commit = () => {
+    const raw = input.value.trim();
+    if (!raw) return;
+    raw.split(/[,，、\n]+/).map(s => s.trim()).filter(Boolean).forEach(t => addItem(t, null));
+    input.value = ''; input.focus();
+  };
+  p.querySelector('#p-text-ok').addEventListener('click', commit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
+}
+
+/* ---- 导出图片：选比例即出图 ---- */
+function openExportPanel() {
+  const p = openPanel(`
+    <h3>导出干净榜单图 · 选择比例</h3>
+    <div class="ratio-grid">
+      <button class="p-btn" data-ratio="3:4">3:4<small>竖图</small></button>
+      <button class="p-btn" data-ratio="4:3">4:3<small>横图</small></button>
+      <button class="p-btn" data-ratio="16:9">16:9<small>宽屏</small></button>
+    </div>`);
+  p.querySelectorAll('[data-ratio]').forEach(btn =>
+    btn.addEventListener('click', () => { closePanel(); exportPNG(btn.dataset.ratio); }));
+}
+
+/* ---- ⋯ 更多 ---- */
+function openMorePanel() {
+  const p = openPanel(`
+    <h3>数据</h3>
+    <button class="p-btn wide" data-m="save">导出数据（JSON，可交给 AI 续榜）</button>
+    <button class="p-btn wide" data-m="load">导入数据（JSON）</button>
+    <button class="p-btn wide" data-m="foot">底部声明</button>
+    <button class="p-btn wide danger" data-m="reset">重置为初始数据</button>`);
+  p.addEventListener('click', (e) => {
+    const m = e.target.dataset.m;
+    if (!m) return;
+    if (m === 'foot') {
+      const q = openPanel(`
+        <h3>底部声明 · 留空则不显示</h3>
+        <div class="p-row">
+          <input type="text" id="p-ft" placeholder="留空则整条消失" autocomplete="off">
+          <button class="p-btn dark" id="p-ft-ok">保存</button>
+        </div>
+        <button class="p-btn wide" id="p-ft-def">恢复默认声明</button>`);
+      const inp = q.querySelector('#p-ft');
+      inp.value = $('#board-footnote').textContent.trim(); inp.focus();
+      const ok = () => {
+        $('#board-footnote').textContent = inp.value.trim();
+        autosave(); closePanel();
+      };
+      q.querySelector('#p-ft-def').addEventListener('click', () => { inp.value = DEFAULT_FOOTNOTE; ok(); });
+      q.querySelector('#p-ft-ok').addEventListener('click', ok);
+      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ok(); });
+      return;
+    }
+    closePanel();
+    if (m === 'save') {
+      const data = serialize();
+      download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+               (data.title || 'hangtola') + '.json');
+    }
+    if (m === 'load') $('#json-input').click();
+    if (m === 'reset' && confirm('清除本地编辑，恢复为文件内嵌的初始数据？')) {
+      localStorage.removeItem('hangtola:' + boardId);
+      location.reload();
+    }
+  });
+}
+
+/* ---- 卡片操作单：定档 / 改名 / 删除（轻点、长按、右键同源） ---- */
+function openCardSheet(cardEl) {
+  const id = cardEl.dataset.id;
+  const it = items.get(id);
+  if (!it) return;
+  const currentTier = cardEl.closest('.tier-items')?.dataset.tier;
+  const chips = TIER_DEFS.map(t => {
+    const label = document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent.trim() || t.label;
+    return `<button class="chip${t.key === currentTier ? ' now' : ''}" style="background:${t.color}" data-t="${t.key}">${escapeHtml(label)}</button>`;
+  }).join('') + `<button class="chip pool-chip${currentTier === 'pool' ? ' now' : ''}" data-t="pool">备选</button>`;
+  const dots = it.image ? '' : `<div class="color-dots">
+    <button class="dot auto${!it.color ? ' now' : ''}" data-col="" title="默认"></button>
+    ${CHIP_COLORS.map(c => `<button class="dot${it.color === c ? ' now' : ''}" style="background:${c}" data-col="${c}"></button>`).join('')}
+  </div>`;
+  const p = openPanel(`
+    <h3>${it.text ? escapeHtml(it.text) : '未命名条目'}</h3>
+    <div class="tier-chips">${chips}</div>
+    ${dots}
+    <button class="p-btn wide" data-c="rename">改名</button>
+    <button class="p-btn wide danger" data-c="del">删除</button>`);
+  p.addEventListener('click', (e) => {
+    if (e.target.dataset.col !== undefined) {
+      it.color = e.target.dataset.col || null;
+      autosave();
+      openCardSheet(refreshCard(cardEl));
+      return;
+    }
+    const t = e.target.dataset.t;
+    if (t && t !== currentTier) {
+      document.querySelector(`.tier-items[data-tier="${t}"]`).appendChild(cardEl);
+      autosave(); closePanel();
+      return;
+    }
+    const c = e.target.dataset.c;
+    if (!c) return;
+    if (c === 'del') { items.delete(id); cardEl.remove(); autosave(); closePanel(); }
+    if (c === 'rename') {
+      const q = openPanel(`
+        <h3>改名</h3>
+        <div class="p-row"><input type="text" id="p-rn" autocomplete="off"><button class="p-btn dark" id="p-rn-ok">确定</button></div>`);
+      const inp = q.querySelector('#p-rn'); inp.value = it.text; inp.focus(); inp.select();
+      const ok = () => { it.text = inp.value.trim(); refreshCard(cardEl); autosave(); closePanel(); };
+      q.querySelector('#p-rn-ok').addEventListener('click', ok);
+      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ok(); });
+    }
+  });
+}
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ---- 深浅色模式 ---- */
+let theme = localStorage.getItem('hangtola-theme') ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+function applyTheme(t) {
+  theme = t;
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('hangtola-theme', t);
+  $('#theme-btn').textContent = t === 'dark' ? '☀' : '☾';
+}
+
+/* ---- dock 分发 ---- */
+$('#dock').addEventListener('click', (e) => {
+  const act = e.target.closest('button')?.dataset.act;
+  if (act === 'text') openTextPanel();
+  if (act === 'image') $('#file-input').click();
+  if (act === 'export') openExportPanel();
+  if (act === 'theme') applyTheme(theme === 'dark' ? 'light' : 'dark');
+  if (act === 'more') openMorePanel();
+});
+
+/* ============================================================
+   图片入口：上传 / 粘贴（压缩为 256px 封面）
+   ============================================================ */
+function readImageFile(file, cb) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      /* 保留原始比例，只压尺寸（长边 ≤512）；裁切交给显示层，数据不失真 */
+      const MAX = 512, cv = document.createElement('canvas');
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = Math.max(1, Math.round(img.width * scale));
+      cv.height = Math.max(1, Math.round(img.height * scale));
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      cb(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+$('#file-input').addEventListener('change', (e) => {
+  [...e.target.files].forEach(f => readImageFile(f, (url) => addItem(guessName(f.name), url)));
+  e.target.value = '';
+});
+document.addEventListener('paste', (e) => {
+  for (const item of e.clipboardData.items) {
+    if (item.type.startsWith('image/')) {
+      readImageFile(item.getAsFile(), (url) => addItem('', url));
+      e.preventDefault();
+    }
+  }
+});
+
+/* ============================================================
+   JSON 导入
+   ============================================================ */
+function download(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+$('#json-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  file.text().then(txt => {
+    try { applyData(JSON.parse(txt)); autosave(); }
+    catch (err) { alert('JSON 解析失败：' + err.message); }
+  });
+  e.target.value = '';
+});
+
+/* ============================================================
+   PNG 导出：干净所见即所得——淡蓝底 + 黑框网格，无水印
+   ============================================================ */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, maxWidth, maxLines) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    if (ctx.measureText(line + ch).width > maxWidth && line) {
+      lines.push(line); line = ch;
+      if (lines.length === maxLines) break;
+    } else line += ch;
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  else if (line && lines.length === maxLines) lines[maxLines - 1] = lines[maxLines - 1].slice(0, -1) + '…';
+  return lines;
+}
+
+async function exportPNG(ratio) {
+  const data = serialize();
+  const T = THEMES[theme];
+  const [W, H] = RATIOS[ratio];
+  const u = W / 1600;                                   // 尺寸归一化单位
+  const FONT = '"PingFang SC","Microsoft YaHei",sans-serif';
+
+  /* 预载图片 */
+  const imgCache = new Map();
+  await Promise.all(data.tiers.flatMap(t => t.items).filter(it => it.image).map(it => new Promise(res => {
+    const im = new Image();
+    im.onload = () => { imgCache.set(it.image, im); res(); };
+    im.onerror = res;
+    im.src = it.image;
+  })));
+
+  /* 布局：统一槽位（方图 S + 名字行 capH），行高按需自增 */
+  const pad = 56 * u, bw = 4 * u;                       // 外边距 / 边框宽
+  const hasTitle = !!data.title;
+  const titleH = hasTitle ? 96 * u : 0;
+  const footH = data.footnote ? 46 * u : 0;      // 声明条：贴着网格底边的实心黑条
+  const gridW = W - pad * 2;
+  const labelW = Math.round(gridW * 0.135);
+  const gap = 10 * u, S = 150 * u, capH = 32 * u, slotH = S + capH;
+  const minRowH = slotH + gap * 2;
+  const perRow = Math.max(1, Math.floor((gridW - labelW - gap * 2) / (S + gap)));
+  const rowHeights = data.tiers.map(t => {
+    const rows = Math.max(1, Math.ceil(t.items.length / perRow));
+    return Math.max(minRowH, rows * (slotH + gap) + gap);
+  });
+  const gridH = rowHeights.reduce((a, b) => a + b, 0);
+  const totalH = pad + titleH + gridH + footH + pad;
+  const scale = Math.min(1, H / totalH);
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  /* 背景不填充：PNG 透明底，贴到任何地方都干净 */
+  ctx.save();
+  ctx.translate((W - W * scale) / 2, (H - totalH * scale) / 2);
+  ctx.scale(scale, scale);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  /* 标题（留空则纯网格） */
+  if (hasTitle) {
+    ctx.fillStyle = T.ink;
+    ctx.font = `800 ${52 * u}px ${FONT}`;
+    ctx.fillText(data.title, W / 2, pad + titleH / 2 - 12 * u);
+  }
+
+  /* 网格主体 */
+  const gx = pad, gy = pad + titleH;
+  ctx.fillStyle = T.row;
+  ctx.fillRect(gx, gy, gridW, gridH);
+
+  let y = gy;
+  data.tiers.forEach((t, i) => {
+    const rh = rowHeights[i];
+    /* 档位色块 + 名称（黑字，色块本身够亮，两种模式通用） */
+    ctx.fillStyle = t.color;
+    ctx.fillRect(gx, y, labelW, rh);
+    ctx.fillStyle = '#111213';
+    const fs = (t.label.length > 3 ? 30 : 38) * u;
+    ctx.font = `800 ${fs}px ${FONT}`;
+    const labelLines = wrapText(ctx, t.label, labelW - 16 * u, 2);
+    const lh = fs * 1.2, ly0 = y + rh / 2 - (labelLines.length - 1) * lh / 2;
+    labelLines.forEach((ln, k) => ctx.fillText(ln, gx + labelW / 2, ly0 + k * lh));
+
+    /* 条目：统一竖版框。无名图＝铺满整框；有名图＝上图下名字条；文字＝色块撑满整框 */
+    t.items.forEach((it, j) => {
+      const col = j % perRow, row = Math.floor(j / perRow);
+      const x = gx + labelW + gap + col * (S + gap);
+      const iy = y + gap + row * (slotH + gap);
+      ctx.save();
+      roundRect(ctx, x, iy, S, slotH, 4 * u); ctx.clip();
+      if (it.image && imgCache.has(it.image)) {
+        const im = imgCache.get(it.image);
+        const areaH = it.text ? S : slotH;
+        const sc = Math.max(S / im.width, areaH / im.height);
+        ctx.drawImage(im, x + (S - im.width * sc) / 2, iy + (areaH - im.height * sc) / 2, im.width * sc, im.height * sc);
+        if (it.text) {
+          ctx.fillStyle = T.capBg;
+          ctx.fillRect(x, iy + S, S, capH);
+          ctx.fillStyle = T.ink;
+          ctx.font = `600 ${19 * u}px ${FONT}`;
+          ctx.fillText(wrapText(ctx, it.text, S - 10 * u, 1)[0] || '', x + S / 2, iy + S + capH / 2 + 1 * u);
+        }
+      } else {
+        const bg = it.color || T.chipBg;
+        ctx.fillStyle = bg;
+        ctx.fillRect(x, iy, S, slotH);
+        ctx.fillStyle = it.color ? (lum(it.color) > 0.62 ? '#111213' : '#ffffff') : T.chipInk;
+        const n = (it.text || '').length;
+        const fs = (n <= 2 ? 36 : n <= 4 ? 29 : n <= 8 ? 23 : 19) * u;
+        ctx.font = `800 ${fs}px ${FONT}`;
+        const lines = wrapText(ctx, it.text, S - 16 * u, 4);
+        const tlh = fs * 1.25, ty0 = iy + slotH / 2 - (lines.length - 1) * tlh / 2;
+        lines.forEach((ln, k) => ctx.fillText(ln, x + S / 2, ty0 + k * tlh));
+      }
+      ctx.restore();
+      /* 统一细边框，贴近编辑器观感 */
+      ctx.strokeStyle = T.ring;
+      ctx.lineWidth = 1.2 * u;
+      roundRect(ctx, x, iy, S, slotH, 4 * u); ctx.stroke();
+    });
+    y += rh;
+  });
+
+  /* 网格线：外框 + 行分隔 + 标签列分隔 */
+  ctx.strokeStyle = T.line;
+  ctx.lineWidth = bw;
+  ctx.strokeRect(gx, gy, gridW, gridH);
+  ctx.beginPath();
+  let ly = gy;
+  for (let i = 0; i < data.tiers.length - 1; i++) {
+    ly += rowHeights[i];
+    ctx.moveTo(gx, ly); ctx.lineTo(gx + gridW, ly);
+  }
+  ctx.moveTo(gx + labelW, gy); ctx.lineTo(gx + labelW, gy + gridH);
+  ctx.stroke();
+
+  /* 底部声明条：黑底白字，与外框咬合成表格的最后一行；字号自适应，永远单行不截断 */
+  if (data.footnote) {
+    const fy = gy + gridH;
+    ctx.fillStyle = T.line;
+    ctx.fillRect(gx - bw / 2, fy - bw / 2, gridW + bw, footH + bw / 2);
+    let ffs = 20 * u;
+    ctx.font = `500 ${ffs}px ${FONT}`;
+    const maxW = gridW - 40 * u, tw = ctx.measureText(data.footnote).width;
+    if (tw > maxW) ctx.font = `500 ${ffs * maxW / tw}px ${FONT}`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(data.footnote, gx + gridW / 2, fy + footH / 2 + 1 * u);
+  }
+  ctx.restore();
+
+  cv.toBlob(b => download(b, `${data.title || 'hangtola'}-${ratio.replace(':', 'x')}.png`), 'image/png');
+}
+
+/* ============================================================
+   启动
+   ============================================================ */
+applyTheme(theme);
+loadInitialData();
+</script>
+</body>
+</html>

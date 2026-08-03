@@ -1,0 +1,9 @@
+{
+  "name": "hangtola",
+  "private": true,
+  "description": "夯到拉排行榜：单文件 tier list 编辑器 + Claude Code 技能",
+  "scripts": {
+    "build": "rm -rf site && mkdir -p site && cp hangtola/assets/template.html site/index.html",
+    "deploy": "npm run build && wrangler pages deploy site --project-name hangtola"
+  }
+}
