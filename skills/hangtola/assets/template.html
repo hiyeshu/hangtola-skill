@@ -8,7 +8,7 @@
  *           外壳遵循 Apple 设计系统（#f5f5f7 画布 / #0066cc 主色 / 毛玻璃胶囊 touch bar / 18px 圆角面板），
  *           指针拖拽排序定档（鼠标+触屏统一）、轻点卡片改名、批量图片上传/拖入/粘贴、JSON 导入导出、
  *           干净无水印透明 PNG 导出（3:4 / 4:3 / 16:9 画幅即比例：卡片槽位参与铺满，档位文字随行高保持光学比例）、
- *           软键盘上浮面板（visualViewport → --kb）、声明条默认为空一键填入、重置重放不刷新
+ *           软键盘上浮面板（visualViewport → --kb）、费曼文案表单、声明条默认文案填入后确认保存、重置重放不刷新
  * [POS]: hangtola 技能的唯一模板资产，由 scripts/render-board.js 校验并注入数据后交付给用户独立运行
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -81,7 +81,7 @@ body { max-width: 1100px; margin: 0 auto; padding: 28px 20px 140px; -webkit-tap-
   text-align: center; font-size: clamp(22px, 4.5vw, 34px); font-weight: 700;
   letter-spacing: -0.374px; outline: none; margin-bottom: 20px; min-height: 1em;
 }
-#board-title:empty::before { content: "点击输入标题（留空则导出无标题）"; color: var(--dim); font-weight: 500; font-size: 0.6em; }
+#board-title:empty::before { content: "点击添加标题"; color: var(--dim); font-weight: 500; font-size: 0.6em; }
 
 /* ============================================================
    榜单表格：黑细边框连体网格
@@ -197,6 +197,12 @@ body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
 }
 @keyframes panel-in { from { opacity: 0; transform: translateX(-50%) translateY(12px); } }
 #panel h3 { font-size: 12px; font-weight: 600; color: var(--dim); letter-spacing: 0.6px; margin-bottom: 12px; text-transform: uppercase; }
+#panel h3.panel-title {
+  color: var(--ink); font-size: 17px; line-height: 1.35; letter-spacing: -0.32px;
+  margin-bottom: 12px; text-transform: none;
+}
+#panel h3.panel-title:has(+ .panel-subtitle) { margin-bottom: 3px; }
+.panel-subtitle { color: var(--dim); font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
 #panel .p-row { display: flex; gap: 8px; }
 #panel input[type="text"], #panel textarea {
   flex: 1; border: 1px solid var(--input-bd); border-radius: 11px; padding: 11px 14px;
@@ -204,6 +210,9 @@ body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
 }
 #panel input[type="text"]:focus, #panel textarea:focus { border-color: var(--accent-focus); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18); }
 #panel textarea { resize: none; height: 84px; line-height: 1.47; }
+.panel-control { display: block; width: 100%; }
+.panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.panel-actions .p-btn { width: 100%; }
 .field-label { display: block; margin: 10px 2px 5px; color: var(--dim); font-size: 12px; font-weight: 600; }
 .p-btn {
   border: none; border-radius: 11px; padding: 11px 18px; font-size: 15px; font-weight: 500;
@@ -213,6 +222,11 @@ body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
 .p-btn:hover { background: var(--panel-btn-h); }
 .p-btn.dark { background: var(--accent); color: #fff; font-weight: 600; }
 .p-btn.dark:hover { background: var(--accent-focus); }
+.p-btn.tertiary {
+  display: block; width: auto; padding: 8px 2px; margin-top: 4px;
+  background: transparent; color: var(--accent); font-size: 13px; font-weight: 600;
+}
+.p-btn.tertiary:hover { background: transparent; color: var(--accent-focus); }
 .p-btn.danger { color: #ff3b30; }
 .p-btn.wide { display: block; width: 100%; text-align: left; margin-top: 8px; }
 .p-btn.wide:first-of-type { margin-top: 0; }
@@ -249,7 +263,11 @@ body.file-over::after {
   pointer-events: none; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 
-.hint { color: var(--dim); font-size: 13px; letter-spacing: -0.08px; margin-top: 24px; line-height: 1.7; text-align: center; }
+.hint {
+  display: grid; gap: 4px; width: min(100%, 520px); margin: 24px auto 0;
+  color: var(--dim); font-size: 13px; letter-spacing: -0.08px; line-height: 1.65; text-align: center;
+}
+.hint p { margin: 0; }
 </style>
 </head>
 <body>
@@ -264,11 +282,10 @@ body.file-over::after {
   <div id="pool-wrap"><div class="tier-items" data-tier="pool"></div></div>
 </section>
 
-<p class="hint">
-  拖动卡片即可定档和排序。轻点卡片可改名。<br>
-  图片支持一次多选、拖入或直接粘贴，加入顺序不会被打乱；纯文字也可以。<br>
-  改动自动保存在这台设备。导出一份 JSON 放进项目的 .hangtola/，AI 就能接着排。
-</p>
+<div class="hint" aria-label="使用说明">
+  <p>点击、拖动卡片即可排序。</p>
+  <p>图片支持一次多选、拖入或直接粘贴。记录自动保存在当前设备</p>
+</div>
 
 <nav id="dock">
   <button data-act="text">＋ 文字</button>
@@ -607,9 +624,11 @@ function openPanel(html) {
 /* ---- ＋ 文字 ---- */
 function openTextPanel() {
   const p = openPanel(`
-    <h3>添加文字条目</h3>
-    <div class="p-row">
-      <input type="text" id="p-text" placeholder="名称，支持逗号 / 顿号批量" autocomplete="off">
+    <h3 class="panel-title">添加文字</h3>
+    <input class="panel-control" type="text" id="p-text" aria-label="名称"
+           placeholder="输入名称，多个用逗号隔开" autocomplete="off">
+    <div class="panel-actions">
+      <button class="p-btn" id="p-text-cancel">取消</button>
       <button class="p-btn dark" id="p-text-ok">添加</button>
     </div>`);
   const input = p.querySelector('#p-text');
@@ -618,8 +637,9 @@ function openTextPanel() {
     const raw = input.value.trim();
     if (!raw) return;
     raw.split(/[,，、\n]+/).map(s => s.trim()).filter(Boolean).forEach(t => addItem(t, null));
-    input.value = ''; input.focus();
+    closePanel();
   };
+  p.querySelector('#p-text-cancel').addEventListener('click', closePanel);
   p.querySelector('#p-text-ok').addEventListener('click', commit);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
 }
@@ -627,7 +647,7 @@ function openTextPanel() {
 /* ---- 导出图片：选比例即出图 ---- */
 function openExportPanel() {
   const p = openPanel(`
-    <h3>导出干净榜单图 · 选择比例</h3>
+    <h3 class="panel-title">导出图片</h3>
     <div class="ratio-grid">
       <button class="p-btn" data-ratio="3:4">3:4<small>竖图</small></button>
       <button class="p-btn" data-ratio="4:3">4:3<small>横图</small></button>
@@ -637,36 +657,48 @@ function openExportPanel() {
     btn.addEventListener('click', () => { closePanel(); exportPNG(btn.dataset.ratio); }));
 }
 
+/* ---- 底部声明：默认文案只填入，用户确认后再保存 ---- */
+function openFootnotePanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">底部声明</h3>
+    <p class="panel-subtitle">不填则不显示</p>
+    <textarea class="panel-control" id="p-ft" aria-label="底部声明"
+              placeholder="输入声明" autocomplete="off"></textarea>
+    <button class="p-btn tertiary" id="p-ft-def">使用默认文案</button>
+    <div class="panel-actions">
+      <button class="p-btn" id="p-ft-cancel">取消</button>
+      <button class="p-btn dark" id="p-ft-ok">保存</button>
+    </div>`);
+  const input = p.querySelector('#p-ft');
+  input.value = $('#board-footnote').textContent.trim();
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  const save = () => {
+    $('#board-footnote').textContent = input.value.replace(/\s+/g, ' ').trim();
+    autosave();
+    closePanel();
+  };
+  p.querySelector('#p-ft-def').addEventListener('click', () => {
+    input.value = DEFAULT_FOOTNOTE;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+  p.querySelector('#p-ft-cancel').addEventListener('click', closePanel);
+  p.querySelector('#p-ft-ok').addEventListener('click', save);
+}
+
 /* ---- ⋯ 更多 ---- */
 function openMorePanel() {
   const p = openPanel(`
-    <h3>数据</h3>
-    <button class="p-btn wide" data-m="save">导出数据（JSON，可交给 AI 续榜）</button>
-    <button class="p-btn wide" data-m="load">导入数据（JSON）</button>
+    <h3 class="panel-title">更多</h3>
+    <button class="p-btn wide" data-m="save">导出榜单数据</button>
+    <button class="p-btn wide" data-m="load">导入榜单数据</button>
     <button class="p-btn wide" data-m="foot">底部声明</button>
     <button class="p-btn wide danger" data-m="reset">重置为初始数据</button>`);
   p.addEventListener('click', async (e) => {
     const m = e.target.dataset.m;
     if (!m) return;
-    if (m === 'foot') {
-      const q = openPanel(`
-        <h3>底部声明 · 留空则不显示</h3>
-        <div class="p-row">
-          <input type="text" id="p-ft" placeholder="留空则整条消失" autocomplete="off">
-          <button class="p-btn dark" id="p-ft-ok">保存</button>
-        </div>
-        <button class="p-btn wide" id="p-ft-def">恢复默认声明</button>`);
-      const inp = q.querySelector('#p-ft');
-      inp.value = $('#board-footnote').textContent.trim(); inp.focus();
-      const ok = () => {
-        $('#board-footnote').textContent = inp.value.trim();
-        autosave(); closePanel();
-      };
-      q.querySelector('#p-ft-def').addEventListener('click', () => { inp.value = DEFAULT_FOOTNOTE; ok(); });
-      q.querySelector('#p-ft-ok').addEventListener('click', ok);
-      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ok(); });
-      return;
-    }
+    if (m === 'foot') { openFootnotePanel(); return; }
     closePanel();
     if (m === 'save') {
       const data = serialize();
@@ -727,10 +759,16 @@ function openCardSheet(cardEl) {
     if (c === 'del') { items.delete(id); cardEl.remove(); autosave(); closePanel(); }
     if (c === 'rename') {
       const q = openPanel(`
-        <h3>改名</h3>
-        <div class="p-row"><input type="text" id="p-rn" autocomplete="off"><button class="p-btn dark" id="p-rn-ok">确定</button></div>`);
+        <h3 class="panel-title">修改名称</h3>
+        <input class="panel-control" type="text" id="p-rn" aria-label="名称"
+               placeholder="输入名称" autocomplete="off">
+        <div class="panel-actions">
+          <button class="p-btn" id="p-rn-cancel">取消</button>
+          <button class="p-btn dark" id="p-rn-ok">保存</button>
+        </div>`);
       const inp = q.querySelector('#p-rn'); inp.value = it.text; inp.focus(); inp.select();
       const ok = () => { it.text = inp.value.trim(); refreshCard(cardEl); autosave(); closePanel(); };
+      q.querySelector('#p-rn-cancel').addEventListener('click', closePanel);
       q.querySelector('#p-rn-ok').addEventListener('click', ok);
       inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ok(); });
     }

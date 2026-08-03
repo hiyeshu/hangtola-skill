@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Node.js 标准库、skills/hangtola 技能目录、Skill 局部 ESM 声明与根 package.json 构建约定
- * [OUTPUT]: 对外提供 npm run check，校验 Skill 元数据、RedSkill 扩展名、模块语义、导出光学比例、资源引用与部署隔离
- * [POS]: 仓库级质量门，阻止不兼容脚本、数据契约或跨画幅视觉尺度漂移进入公开 Skill 真相源
+ * [OUTPUT]: 对外提供 npm run check，校验 Skill 元数据、RedSkill 扩展名、模块语义、费曼文案面板、导出光学比例与部署隔离
+ * [POS]: 仓库级质量门，阻止不兼容脚本、数据契约、交互文案或跨画幅视觉尺度漂移进入公开 Skill 真相源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -79,6 +79,28 @@ assert(
 );
 assert(!template.includes('hiyeshu/hangtola-skill'), 'GitHub 部署入口不得进入 Skill 模板');
 assert(!template.includes('copy-skill'), '部署站点控件不得进入 Skill 模板');
+assert(
+  template.includes('content: "点击添加标题"')
+    && template.includes('<h3 class="panel-title">添加文字</h3>')
+    && template.includes('<h3 class="panel-title">导出图片</h3>')
+    && template.includes('>导出榜单数据</button>')
+    && template.includes('>导入榜单数据</button>')
+    && template.includes('<h3 class="panel-title">底部声明</h3>')
+    && template.includes('>使用默认文案</button>')
+    && template.includes('class="panel-actions"')
+    && template.includes('<p>点击、拖动卡片即可排序。</p>')
+    && template.includes('<p>图片支持一次多选、拖入或直接粘贴。记录自动保存在当前设备</p>'),
+  '编辑器必须保持动作优先的费曼文案与统一表单操作栏',
+);
+assert(
+  !template.includes('导出干净榜单图 · 选择比例')
+    && !template.includes('导出数据（JSON，可交给 AI 续榜）')
+    && !template.includes('底部声明 · 留空则不显示')
+    && !template.includes('填入默认声明')
+    && !template.includes('恢复默认声明')
+    && !template.includes('添加文字条目'),
+  '编辑器不得恢复技术实现导向或说明书式旧文案',
+);
 const scripts = [...template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
   .map((match) => match[1])
   .filter((source) => source.trim() && source.trim() !== '{}');
