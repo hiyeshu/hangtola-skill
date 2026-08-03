@@ -2,45 +2,64 @@
 
 > 万物皆可排：**夯 → 顶级 → 人上人 → NPC → 拉完了**
 
-在线使用：**[hangtola.app](https://hangtola.app)**
+[![skills.sh](https://skills.sh/b/hiyeshu/hangtola-skill)](https://skills.sh/hiyeshu/hangtola-skill)
 
-夯到拉是中文互联网的 tier list——给手机、游戏、奶茶、同事的代码……任何东西定档。
-整个产品是**一个 HTML 文件**：零依赖、离线可用、双击即跑、发给谁都能打开。
+在线编辑：[hangtola.app](https://hangtola.app)
 
-## 特性
+Hangtola 是一个开放 Agent Skill，也是一份零依赖、离线可运行的单文件 tier list 编辑器。用户可以一次上传很多图片、给图片配公开短评、混入纯文字条目，再让 AI 按自定义维度定档和排序。
 
-- **五档定档**：拖拽卡片入档；轻点 / 长按 / 右键卡片打开操作单（定档色块、改名、删除）
-- **图片 + 文字混排**：上传或直接粘贴图片（保留原始比例压缩）；文字卡字号随字数自适应，可选 iOS 系统色底
-- **统一卡片框**：图片卡（图上名下）与文字卡同框同高，混排严格对齐
-- **深浅色模式**：☾/☀ 一键切换，导出跟随
-- **干净导出**：透明底 PNG，3:4 / 4:3 / 16:9 三比例，无水印；标题可留空出纯网格
-- **可编辑一切**：标题、档位名、底部声明条都能直接点击修改
-- **自动保存**：改动留在本地浏览器；导出 / 导入 JSON 随时迁移
+## 安装 Skill
 
-## AI Skill（Claude Code）
-
-本仓库同时是一个 [Claude Code](https://claude.com/claude-code) 技能：AI 主动搜索条目资料、
-和你确认排序维度、打分定档，生成注入好数据的 HTML 供你继续手调。
-
-安装：把 [`hangtola/`](hangtola/) 目录放进 `~/.claude/skills/`，或直接使用
-[`dist/hangtola.skill`](dist/hangtola.skill) 分发包。
-
-对 AI 说「给 2026 的旗舰手机排个夯到拉」即可触发。维度与榜单数据会持久化在你项目的
-`.hangtola/` 目录，下次续榜自动复用；在网页里改完的榜单「导出数据」交回 AI 也能接着排。
-
-## 结构
-
-```
-hangtola/            # 技能真相源
-├── SKILL.md         # AI 工作流：记忆 → 条目 → 维度 → 调研 → 定档 → 生成 → 写忆 → 交付
-└── assets/
-    └── template.html  # 唯一模板 = hangtola.app 部署的页面本体
-dist/hangtola.skill  # 技能分发包
-```
-
-## 开发与部署
+通过 [skills.sh](https://skills.sh/) 使用的开放 `skills` CLI 安装：
 
 ```bash
-npm run build    # 复制模板到 site/index.html
-npm run deploy   # 构建并部署到 Cloudflare Pages
+npx skills add hiyeshu/hangtola-skill --skill hangtola
+```
+
+CLI 会把同一份 Skill 安装到 Codex、Claude Code、Cursor、GitHub Copilot、Gemini CLI 等受支持 Agent。无需下载仓库内的私有打包格式。
+
+安装后可以直接说：
+
+```text
+用 $hangtola 把我上传的这些图片和文字备注排成夯到拉。
+```
+
+## 能力
+
+- **多图直传**：一次多选、拖入或粘贴；异步压缩后仍保持图片与说明的输入顺序。
+- **混合条目**：图片、图片配文和纯文字走同一套定档规则。
+- **三层文案**：稳定名称、公开短评、内部定档依据各司其职；短评默认简单、清晰、有趣。
+- **AI 呈现参数**：纯文字背景色由 AI 按语义从受控调色板选择，模板自动保证前景可读。
+- **可视化精排**：拖拽跨档定档，也能在同档内调整先后；轻点卡片编辑文案。
+- **离线交付**：图片嵌入 HTML，不依赖外链；支持 3:4、4:3、16:9 透明 PNG 和 JSON 导入导出。
+- **大榜自动保存**：榜单写入 IndexedDB，避免多图轻易撞上 localStorage 容量上限。
+
+## 仓库结构
+
+```text
+skills/
+└── hangtola/
+    ├── SKILL.md                  # Agent 工作流与数据契约
+    ├── agents/openai.yaml        # Agent UI 元数据
+    ├── assets/template.html      # 独立编辑器与部署真相源
+    ├── references/input-contract.md
+    └── scripts/render-board.mjs  # JSON + 本地图片 → 独立 HTML
+scripts/check.mjs                 # 仓库质量门
+site/                             # 构建产物，不入 Git
+```
+
+`skills.sh` 会从 GitHub 仓库发现 `SKILL.md`。首次有人运行上面的安装命令后，安装遥测会让该 Skill 自动进入目录；单 Skill 仓库不需要额外的 `skills.sh.json` 分组配置。
+
+## 开发
+
+```bash
+npm run check   # 校验 Skill 文件、资源引用和模板 JavaScript
+npm run build   # 复制 Skill 模板到 site/index.html
+npm run deploy  # 构建并部署 Cloudflare Worker 静态资产
+```
+
+手工生成一份榜单：
+
+```bash
+node skills/hangtola/scripts/render-board.mjs board.json output.html
 ```

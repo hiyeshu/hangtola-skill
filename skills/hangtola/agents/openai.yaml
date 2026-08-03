@@ -1,0 +1,4 @@
+interface:
+  display_name: "夯到拉 Hangtola"
+  short_description: "把多张图片和纯文字条目排成可编辑、可导出的夯到拉榜单"
+  default_prompt: "使用 $hangtola 把这些图片和文字备注排成一份可编辑、可导出的夯到拉榜单。"

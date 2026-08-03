@@ -1,34 +1,35 @@
-# hangtola-skill - 夯到拉排行榜生成技能工作区
-纯静态 HTML/CSS/JS + Claude Code Skill 规范 + Cloudflare Pages
+# hangtola-skill - 多模态夯到拉榜单 Skill 与离线编辑器
+Agent Skills 开放规范 + 原生 HTML/CSS/JavaScript + Node.js CLI + Cloudflare Workers 静态资产
 
 <directory>
-hangtola/ - 技能真相源（软链至 ~/.claude/skills/hangtola），含 SKILL.md 工作流与 assets/template.html 独立编辑器模板
-dist/ - package_skill.py 产出的 .skill 分发包（随仓库分发）
-site/ - npm run build 的部署产物（template.html → index.html），gitignore，Cloudflare Pages 部署目录
+skills/ - skills.sh 可发现的 Skill 集合；当前仅含 hangtola
+scripts/ - 仓库级检查工具，不进入 Skill 运行时工作流
+site/ - npm run build 生成的部署副本，永不手改且不入 Git
 </directory>
 
 <config>
-hangtola/SKILL.md - 技能入口：触发描述 + 八步工作流（记忆→条目→维度→调研→定档→生成→写忆→交付）+ 数据 schema
-hangtola/assets/template.html - 零依赖单文件编辑器 = hangtola.app 页面本体：经典黑框网格榜单（导出即所见，透明底 PNG）+ Apple 设计系统外壳 + 底部悬浮 touch bar；指针拖拽定档（鼠标/触屏统一），轻点/长按/右键同源卡片操作单（定档色块/底色圆点/改名/删除）；统一竖版卡片框；字号自适应；深浅色双模式；标题与声明条可选
-README.md - GitHub 主入口（hiyeshu/hangtola-skill）：产品说明、hangtola.app 在线地址、技能安装、结构与部署
-package.json - 构建边界：build 复制模板为 site/index.html；deploy 走 wrangler deploy（Workers 静态资产）
-wrangler.toml - 部署真相源：assets-only Worker「hangtola」+ custom_domain hangtola.app（wrangler 自动托管 DNS 与证书，OAuth 无需 DNS 权限）
-.gitignore - 忽略 site/ 构建产物、.DS_Store、node_modules、.wrangler 缓存
+skills/hangtola/SKILL.md - Skill 入口：多模态输入归一化、维度、调研、定档、呈现参数、生成与交付
+skills/hangtola/assets/template.html - hangtola.app 与生成 HTML 的唯一模板真相源
+skills/hangtola/scripts/render-board.mjs - 校验榜单 JSON、嵌入本地图片并安全注入模板
+README.md - GitHub 与 skills.sh 用户入口、通用安装命令和开发说明
+package.json - check/build/deploy 边界；build 只复制模板到 site/index.html
+wrangler.toml - assets-only Worker「hangtola」与 hangtola.app 自定义域配置
+.gitignore - 忽略 site、node_modules、Wrangler 缓存与系统文件
 </config>
 
 架构决策:
-真相源放本工作区、技能库只挂软链——开发与分发解耦，Git 化不污染 ~/.claude。
-一份模板三种身份：技能资产、hangtola.app 页面、.skill 包内容——site/ 只是复制品，永不手改。
-榜单本体与外壳分层：网格视觉锁定经典 tier list 样式（用户参考图为准），外壳独立遵循 Apple token（#f5f5f7/#0066cc/毛玻璃胶囊），互不侵染。
-模板离线自足：数据经 #hangtola-data 内嵌 JSON 注入，图片一律 base64 禁外链；
-localStorage 按榜单 id 隔离自动保存，与内嵌数据比 savedAt 时间新者胜。
-note（定档理由）只存数据供 AI 续榜；标题与声明条皆可选——导出图的干净是产品底线。
-维度记忆落在使用方项目的 .hangtola/ 目录（属运行时产物，不在本仓库）。
+开放分发只认 `skills/hangtola/` 真相源；不维护私有 `.skill` 二进制副本，避免双重版本。
+数据模型分离 `text` 稳定名称、`caption` 公开短评、`note` 内部依据；图片和纯文字共享定档模型。
+纯文字 `color` 由 AI 从受控调色板按语义选择；图片卡颜色固定为空，拒绝无效参数。
+HTML 生成必须经过 render-board.mjs，禁止 Agent 手工拼 base64 或替换 JSON script。
+批量图片异步压缩必须保持输入顺序；用户拖拽决定档位与档内次序。
+大图榜单用 IndexedDB 自动保存，localStorage 只保留旧数据与能力降级回退。
+模板离线自足，图片只能是本地路径或 data URL；site 只是部署副本。
+维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
-2026-08-03 - 同步 minitool-build 容器分支的通用改进（工具特有除外）：软键盘上浮面板（--kb）、安全区 var+env 组合、重置重放不刷新、声明默认为空一键填入；导出改「画幅即比例」满幅布局（富余行高均摊、超载缩卡兜底缩放）。
-2026-08-03 - 产品化：透明 PNG、统一卡片框、文字卡底色与自适应字号、标题可选、声明条表格化；上 GitHub（hiyeshu/hangtola-skill）并部署 hangtola.app。
-2026-08-03 - 交互重构：废顶部按钮改底部 touch bar；Pointer Events 替代 HTML5 DnD 根治移动端；参考图定型经典网格；Apple 设计系统外壳；深浅色模式。
-2026-08-03 - 初版：技能骨架 + 模板 + 打包。
+2026-08-03 - 迁移至 skills.sh 兼容目录；加入多图输入、公开短评、纯文字智能配色、确定性渲染脚本与 IndexedDB。
+2026-08-03 - 同步 minitool-build 通用改进：软键盘上浮、安全区、无刷新重置、满幅比例导出。
+2026-08-03 - 产品化并部署 hangtola.app：透明 PNG、统一卡片框、深浅色与可编辑标题/声明。
 
 法则: 极简·稳定·导航·版本精确
