@@ -1,0 +1,10 @@
+# hangtola.app 部署配置：Workers 静态资产（assets-only），custom_domain 自动托管 DNS 与证书
+name = "hangtola"
+compatibility_date = "2026-08-01"
+
+[assets]
+directory = "./site"
+
+[[routes]]
+pattern = "hangtola.app"
+custom_domain = true

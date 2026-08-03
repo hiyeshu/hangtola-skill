@@ -11,7 +11,8 @@ site/ - npm run build 的部署产物（template.html → index.html），gitign
 hangtola/SKILL.md - 技能入口：触发描述 + 八步工作流（记忆→条目→维度→调研→定档→生成→写忆→交付）+ 数据 schema
 hangtola/assets/template.html - 零依赖单文件编辑器 = hangtola.app 页面本体：经典黑框网格榜单（导出即所见，透明底 PNG）+ Apple 设计系统外壳 + 底部悬浮 touch bar；指针拖拽定档（鼠标/触屏统一），轻点/长按/右键同源卡片操作单（定档色块/底色圆点/改名/删除）；统一竖版卡片框；字号自适应；深浅色双模式；标题与声明条可选
 README.md - GitHub 主入口（hiyeshu/hangtola-skill）：产品说明、hangtola.app 在线地址、技能安装、结构与部署
-package.json - 构建边界：build 复制模板为 site/index.html；deploy 走 wrangler pages（项目名 hangtola，域名 hangtola.app）
+package.json - 构建边界：build 复制模板为 site/index.html；deploy 走 wrangler deploy（Workers 静态资产）
+wrangler.toml - 部署真相源：assets-only Worker「hangtola」+ custom_domain hangtola.app（wrangler 自动托管 DNS 与证书，OAuth 无需 DNS 权限）
 .gitignore - 忽略 site/ 构建产物、.DS_Store、node_modules、.wrangler 缓存
 </config>
 
