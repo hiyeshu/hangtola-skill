@@ -1,7 +1,7 @@
 ---
 name: hangtola
 description: >
-  Turn batches of uploaded images, image-plus-text notes, plain-text items, or mixed inputs into a researched and editable Chinese meme tier list with five ranks: 夯 / 顶级 / 人上人 / NPC / 拉完了. Use when the user mentions “夯到拉”, “夯榜”, “tier list”, “排行榜”, “排个档”, asks to rank a set of items, or uploads many images and wants them identified, captioned, ordered, and exported as a standalone HTML or PNG board.
+  Turn batches of uploaded images, image-plus-text notes, plain-text items, or mixed inputs into a researched and editable Chinese meme tier list with five ranks: 夯 / 顶级 / 人上人 / NPC / 拉完了. Use when the user mentions “夯到拉”, “夯榜”, “tier list”, “排行榜”, “排个档”, asks to rank a set of items, or uploads many images and wants them identified, named, ordered, and exported as a standalone HTML or PNG board.
 ---
 
 # Hangtola 夯到拉
@@ -12,11 +12,11 @@ description: >
 
 - 接受图片、图片配文、纯文字或三者混合输入，不要求用户先整理成表格。
 - 把附件顺序当作输入顺序，不当作排名；先保持图片与说明的配对，再按维度定档。
-- 把 `text`、`caption`、`note` 分开：名称用于识别，短评用于公开展示，依据用于内部记忆。
+- 把 `text` 与 `note` 分开：名称是卡片唯一公开文案，依据只用于内部记忆。
 - 让 AI 根据语义填写合理参数；不要把所有可选字段机械地留空。
 - 只在缺少的信息会实质改变定档时提问。能够从图片、文件名、上下文或调研判断时直接完成。
 
-处理多图、混合输入、短评或智能配色时，先读 [references/input-contract.md](references/input-contract.md)。
+处理多图、混合输入或智能配色时，先读 [references/input-contract.md](references/input-contract.md)。
 
 ## 工作流
 
@@ -39,7 +39,6 @@ description: >
 
 - `text`：稳定、可识别的条目名称。
 - `image`：本地图片路径或 `data:` URL；没有图片时为 `null`。
-- `caption`：图片卡公开短评。默认生成一句简单、清晰、有趣的短句；纯文字卡通常留空。
 - `note`：定档依据和不确定性，仅写入数据，不显示在导出图。
 - `color`：纯文字卡背景色。根据语义从受控调色板选择；图片卡必须为 `null`。
 
@@ -55,7 +54,7 @@ description: >
 
 - 用户给定的图片和说明足够时，不为“显得认真”而搜索。
 - 事实会影响定档时，使用可用的网络搜索工具核对参数、口碑或背景。
-- 把证据摘要写入 `note`，不要把长篇研究塞进公开 `caption`。
+- 把证据摘要写入 `note`，不要把研究结论混进公开名称。
 
 ### 5. 定档与排序
 
@@ -66,7 +65,7 @@ description: >
 
 ### 6. 填写呈现参数
 
-- 图片卡 `caption` 优先写观察或判断，避免空泛夸奖。默认不超过 14 个汉字或 36 个拉丁字符。
+- 图片卡和纯文字卡都只公开显示 `text`；名称保持稳定可识别，不追加评价文案。
 - 纯文字卡 `color` 按语义选择，颜色只承担补充表达，不重复档位含义。无法形成稳定语义时用 `null`。
 - `title` 和 `footnote` 默认留空；只有用户明确要求才显示。
 - 五档 `key` 和 `color` 固定，`label` 可编辑。
@@ -85,8 +84,8 @@ node <skill-directory>/scripts/render-board.mjs board.json 夯到拉-主题.html
 
 - 合并维度到 `.hangtola/dimensions.json`，按主题保存更新时间。
 - 保存最终数据到 `.hangtola/boards/<slug>.json`，同一榜单迭代时保持 `id` 不变并刷新 `savedAt`。
-- 在浏览器中打开 HTML，确认图片、公开短评、纯文字颜色、档内顺序和导出均正常。
-- 告知用户可拖拽精排、轻点卡片编辑名称/短评/内部依据、批量上传或粘贴图片、导出 PNG/JSON。
+- 在浏览器中打开 HTML，确认图片、名称、纯文字颜色、档内顺序和三种导出比例均正常。
+- 告知用户可拖拽精排、轻点卡片改名、批量上传或粘贴图片、导出 PNG/JSON。
 
 ## 数据契约
 
@@ -106,7 +105,6 @@ node <skill-directory>/scripts/render-board.mjs board.json 夯到拉-主题.html
         {
           "text": "示例条目",
           "image": "/absolute/path/to/example.jpg",
-          "caption": "强得不讲武德",
           "note": "内部定档依据，不公开显示",
           "color": null
         }
@@ -118,7 +116,7 @@ node <skill-directory>/scripts/render-board.mjs board.json 夯到拉-主题.html
     { "key": "la", "label": "拉完了", "color": "#ffffff", "items": [] }
   ],
   "pool": [
-    { "text": "纯文字候选", "image": null, "caption": "", "note": "", "color": "#0a84ff" }
+    { "text": "纯文字候选", "image": null, "note": "", "color": "#0a84ff" }
   ]
 }
 ```

@@ -105,7 +105,6 @@ async function embedImage(value, baseDirectory) {
 
 async function normalizeItem(value, baseDirectory, location) {
   const text = cleanText(value?.text);
-  const caption = cleanText(value?.caption);
   const note = cleanText(value?.note);
   const image = await embedImage(value?.image, baseDirectory);
   if (!text && !image) {
@@ -115,7 +114,6 @@ async function normalizeItem(value, baseDirectory, location) {
   return {
     text,
     image,
-    caption: image ? caption : '',
     note,
     color: !image && TEXT_COLORS.has(cleanText(value?.color).toLowerCase())
       ? cleanText(value.color).toLowerCase()

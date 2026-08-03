@@ -20,7 +20,7 @@ wrangler.toml - assets-only Worker「hangtola」与 hangtola.app 自定义域配
 
 架构决策:
 开放分发只认 `skills/hangtola/` 真相源；不维护私有 `.skill` 二进制副本，避免双重版本。
-数据模型分离 `text` 稳定名称、`caption` 公开短评、`note` 内部依据；图片和纯文字共享定档模型。
+数据模型只保留 `text` 稳定名称与 `note` 内部依据；卡片只公开显示名字，图片和纯文字共享定档模型。
 纯文字 `color` 由 AI 从受控调色板按语义选择；图片卡颜色固定为空，拒绝无效参数。
 HTML 生成必须经过 render-board.mjs，禁止 Agent 手工拼 base64 或替换 JSON script。
 批量图片异步压缩必须保持输入顺序；用户拖拽决定档位与档内次序。
@@ -29,9 +29,10 @@ HTML 生成必须经过 render-board.mjs，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
-2026-08-03 - 迁移至 skills.sh 兼容目录；加入多图输入、公开短评、纯文字智能配色、确定性渲染脚本与 IndexedDB。
+2026-08-03 - 迁移至 skills.sh 兼容目录；加入多图输入、纯文字智能配色、确定性渲染脚本与 IndexedDB。
 2026-08-03 - 同步 minitool-build 通用改进：软键盘上浮、安全区、无刷新重置、满幅比例导出。
 2026-08-03 - 产品化并部署 hangtola.app：透明 PNG、统一卡片框、深浅色与可编辑标题/声明。
 2026-08-03 - 分离部署站点外壳：右上角 GitHub 图标与 Skill 复制仅注入 hangtola.app，Skill 模板保持干净。
+2026-08-03 - Web 与 minitool 业务模型同构：移除短评字段，卡片只显示名字，三种导出比例共用单行名字槽位算法。
 
 法则: 极简·稳定·导航·版本精确
