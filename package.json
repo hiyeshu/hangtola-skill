@@ -3,7 +3,7 @@
   "private": true,
   "description": "夯到拉排行榜：多模态 Agent Skill + 单文件 tier list 编辑器",
   "scripts": {
-    "build": "rm -rf site && mkdir -p site && cp skills/hangtola/assets/template.html site/index.html",
+    "build": "node scripts/build-site.mjs",
     "check": "node scripts/check.mjs",
     "deploy": "npm run build && wrangler deploy"
   }

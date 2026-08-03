@@ -45,7 +45,8 @@ skills/
     ├── references/input-contract.md
     └── scripts/render-board.mjs  # JSON + 本地图片 → 独立 HTML
 scripts/check.mjs                 # 仓库质量门
-site/                             # 构建产物，不入 Git
+scripts/build-site.mjs            # 组合部署外壳，不修改 Skill 模板
+site/                             # 带站点专属入口的构建产物，不入 Git
 ```
 
 `skills.sh` 会从 GitHub 仓库发现 `SKILL.md`。首次有人运行上面的安装命令后，安装遥测会让该 Skill 自动进入目录；单 Skill 仓库不需要额外的 `skills.sh.json` 分组配置。
@@ -54,7 +55,7 @@ site/                             # 构建产物，不入 Git
 
 ```bash
 npm run check   # 校验 Skill 文件、资源引用和模板 JavaScript
-npm run build   # 复制 Skill 模板到 site/index.html
+npm run build   # 从干净 Skill 模板组合 site/index.html
 npm run deploy  # 构建并部署 Cloudflare Worker 静态资产
 ```
 
