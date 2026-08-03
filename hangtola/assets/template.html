@@ -7,7 +7,8 @@
  * [OUTPUT]: 对外提供 夯到拉排行榜 独立编辑器：榜单本体为经典黑框浅色表格（原汁原味，导出即所见），
  *           外壳遵循 Apple 设计系统（#f5f5f7 画布 / #0066cc 主色 / 毛玻璃胶囊 touch bar / 18px 圆角面板），
  *           指针拖拽定档（鼠标+触屏统一）、轻点卡片操作单、图片上传/粘贴、JSON 导入导出、
- *           干净无水印 PNG 导出（3:4 / 4:3 / 16:9，标题留空则纯网格）
+ *           干净无水印透明 PNG 导出（3:4 / 4:3 / 16:9 画幅即比例：富余行高均摊满幅，无留白居中）、
+ *           软键盘上浮面板（visualViewport → --kb）、声明条默认为空一键填入、重置重放不刷新
  * [POS]: hangtola 技能的唯一模板资产，被 SKILL.md 工作流复制并注入数据后交付给用户独立运行
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,6 +45,8 @@
   --chip-ink: #fff;
   --thumb-ring: rgba(17, 18, 19, 0.28);
   --border-w: 2.5px;
+  /* 安全区：容器可注入 --safe-area-inset-*，浏览器回落 env()；--kb 由软键盘监听实时写入 */
+  --safe-b: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 }
 :root[data-theme="dark"] {
   /* 外壳：Apple 深色（iOS 深空灰 · 主色 #0a84ff） */
@@ -158,7 +161,7 @@ body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
    ============================================================ */
 #dock {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(16px + var(--safe-b));
   z-index: 200; display: flex; align-items: center; gap: 2px;
   padding: 6px; border-radius: 9999px;
   background: var(--glass);
@@ -183,7 +186,7 @@ body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
 #mask { position: fixed; inset: 0; z-index: 240; background: var(--mask); }
 #panel {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  bottom: max(calc(84px + var(--safe-b)), calc(var(--kb, 0px) + 12px));
   z-index: 250; width: min(420px, calc(100vw - 32px));
   background: var(--panel-bg);
   backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8);
@@ -246,7 +249,7 @@ body { --card-w: clamp(78px, 16vw, 106px); --cap-h: 20px; }
 <h1 id="board-title" contenteditable="true" spellcheck="false"></h1>
 
 <main id="board"></main>
-<p id="board-footnote" contenteditable="true" spellcheck="false">以上内容纯属个人主观体验，不代表任何客观评价，仅供参考</p>
+<p id="board-footnote" contenteditable="true" spellcheck="false"></p>
 
 <section id="pool-section">
   <h2>待定</h2>
@@ -295,8 +298,8 @@ const CHIP_COLORS = ['#ffffff', '#ff453a', '#ff9f0a', '#ffd60a', '#30d158', '#0a
 const items = new Map();          // id -> { text, image, note, color }
 let boardId = 'default';
 let nextId = 1;
-/* 底部声明：默认即有，用户可改；清空则整条消失（DOM 即真相，与标题/档位名同源） */
-const DEFAULT_FOOTNOTE = document.querySelector('#board-footnote').textContent.trim();
+/* 底部声明：默认为空（删比加烦），想要的人在 ⋯ 菜单一键填入；字面量不依赖 DOM */
+const DEFAULT_FOOTNOTE = '以上内容纯属个人主观体验，不代表任何客观评价，仅供参考';
 
 const $ = (sel) => document.querySelector(sel);
 const board = $('#board');
@@ -334,7 +337,7 @@ function applyData(data) {
   if (typeof data.title === 'string') $('#board-title').textContent = data.title;
   /* 字段缺失 = 用默认声明；显式空串 = 用户主动清掉，尊重之 */
   $('#board-footnote').textContent =
-    typeof data.footnote === 'string' ? data.footnote.trim() : DEFAULT_FOOTNOTE;
+    typeof data.footnote === 'string' ? data.footnote.trim() : '';
   const buckets = {};
   (data.tiers || []).forEach(t => {
     buckets[t.key] = t.items || [];
@@ -597,7 +600,15 @@ function openMorePanel() {
     if (m === 'load') $('#json-input').click();
     if (m === 'reset' && confirm('清除本地编辑，恢复为文件内嵌的初始数据？')) {
       localStorage.removeItem('hangtola:' + boardId);
-      location.reload();
+      /* 重放内嵌数据而非刷新页面：保留主题等状态，体验不断片。
+         applyData 对缺失字段是"保持不动"，故先归位标题与档位名默认值 */
+      $('#board-title').textContent = '';
+      TIER_DEFS.forEach(t => {
+        document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent = t.label;
+      });
+      let embedded = {};
+      try { embedded = JSON.parse($('#hangtola-data').textContent || '{}'); } catch (err) {}
+      applyData(embedded);
     }
   });
 }
@@ -767,62 +778,76 @@ async function exportPNG(ratio) {
     im.src = it.image;
   })));
 
-  /* 布局：统一槽位（方图 S + 名字行 capH），行高按需自增 */
-  const pad = 56 * u, bw = 4 * u;                       // 外边距 / 边框宽
+  /* 画幅即比例：内容满幅铺满 W×H，不做留白居中。
+     标题带与声明条占固定高度，网格吃满剩余；行高先按内容计算，
+     富余高度均分给各档（经典 tier list 的等高空行观感），
+     放不下则逐步缩小卡片，极端条目数整体缩放兜底 */
+  const bw = 4 * u;
   const hasTitle = !!data.title;
-  const titleH = hasTitle ? 96 * u : 0;
-  const footH = data.footnote ? 46 * u : 0;      // 声明条：贴着网格底边的实心黑条
-  const gridW = W - pad * 2;
-  const labelW = Math.round(gridW * 0.135);
-  const gap = 10 * u, S = 150 * u, capH = 32 * u, slotH = S + capH;
-  const minRowH = slotH + gap * 2;
-  const perRow = Math.max(1, Math.floor((gridW - labelW - gap * 2) / (S + gap)));
-  const rowHeights = data.tiers.map(t => {
-    const rows = Math.max(1, Math.ceil(t.items.length / perRow));
-    return Math.max(minRowH, rows * (slotH + gap) + gap);
-  });
-  const gridH = rowHeights.reduce((a, b) => a + b, 0);
-  const totalH = pad + titleH + gridH + footH + pad;
-  const scale = Math.min(1, H / totalH);
+  const titleH = hasTitle ? 110 * u : 0;
+  const footH = data.footnote ? 46 * u : 0;
+  const availH = H - titleH - footH;
+  const labelW = Math.round(W * 0.135);
+  const gap = 10 * u, capH = 32 * u;
+
+  const layoutFor = (S) => {
+    const slotH = S + capH;
+    const perRow = Math.max(1, Math.floor((W - labelW - gap * 2) / (S + gap)));
+    const minRowH = slotH + gap * 2;
+    const rowHeights = data.tiers.map(t => {
+      const rows = Math.max(1, Math.ceil(t.items.length / perRow));
+      return Math.max(minRowH, rows * (slotH + gap) + gap);
+    });
+    return { S, slotH, perRow, rowHeights, gridH: rowHeights.reduce((a, b) => a + b, 0) };
+  };
+  let L = layoutFor(150 * u);
+  while (L.gridH > availH && L.S > 64 * u) L = layoutFor(L.S * 0.93);
+  let gridScale = 1;
+  if (L.gridH > availH) gridScale = availH / L.gridH;
+  else {
+    const extra = (availH - L.gridH) / data.tiers.length;
+    L.rowHeights = L.rowHeights.map(h => h + extra);
+    L.gridH = availH;
+  }
+  const { S, slotH, perRow, rowHeights } = L;
 
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  /* 背景不填充：PNG 透明底，贴到任何地方都干净 */
-  ctx.save();
-  ctx.translate((W - W * scale) / 2, (H - totalH * scale) / 2);
-  ctx.scale(scale, scale);
+  /* 背景不填充：PNG 透明底 */
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
-  /* 标题（留空则纯网格） */
+  /* 标题带 */
   if (hasTitle) {
     ctx.fillStyle = T.ink;
     ctx.font = `800 ${52 * u}px ${FONT}`;
-    ctx.fillText(data.title, W / 2, pad + titleH / 2 - 12 * u);
+    ctx.fillText(data.title, W / 2, titleH / 2 + 4 * u);
   }
 
-  /* 网格主体 */
-  const gx = pad, gy = pad + titleH;
+  /* 网格：满幅（仅极端内容时居中缩放） */
+  ctx.save();
+  ctx.translate((W - W * gridScale) / 2, titleH + (availH - L.gridH * gridScale) / 2);
+  ctx.scale(gridScale, gridScale);
   ctx.fillStyle = T.row;
-  ctx.fillRect(gx, gy, gridW, gridH);
+  ctx.fillRect(0, 0, W, L.gridH);
 
-  let y = gy;
+  let y = 0;
   data.tiers.forEach((t, i) => {
     const rh = rowHeights[i];
     /* 档位色块 + 名称（黑字，色块本身够亮，两种模式通用） */
     ctx.fillStyle = t.color;
-    ctx.fillRect(gx, y, labelW, rh);
+    ctx.fillRect(0, y, labelW, rh);
     ctx.fillStyle = '#111213';
     const fs = (t.label.length > 3 ? 30 : 38) * u;
     ctx.font = `800 ${fs}px ${FONT}`;
     const labelLines = wrapText(ctx, t.label, labelW - 16 * u, 2);
     const lh = fs * 1.2, ly0 = y + rh / 2 - (labelLines.length - 1) * lh / 2;
-    labelLines.forEach((ln, k) => ctx.fillText(ln, gx + labelW / 2, ly0 + k * lh));
+    labelLines.forEach((ln, k) => ctx.fillText(ln, labelW / 2, ly0 + k * lh));
 
     /* 条目：统一竖版框。无名图＝铺满整框；有名图＝上图下名字条；文字＝色块撑满整框 */
     t.items.forEach((it, j) => {
       const col = j % perRow, row = Math.floor(j / perRow);
-      const x = gx + labelW + gap + col * (S + gap);
+      const x = labelW + gap + col * (S + gap);
       const iy = y + gap + row * (slotH + gap);
       ctx.save();
       roundRect(ctx, x, iy, S, slotH, 4 * u); ctx.clip();
@@ -844,10 +869,10 @@ async function exportPNG(ratio) {
         ctx.fillRect(x, iy, S, slotH);
         ctx.fillStyle = it.color ? (lum(it.color) > 0.62 ? '#111213' : '#ffffff') : T.chipInk;
         const n = (it.text || '').length;
-        const fs = (n <= 2 ? 36 : n <= 4 ? 29 : n <= 8 ? 23 : 19) * u;
-        ctx.font = `800 ${fs}px ${FONT}`;
+        const cfs = (n <= 2 ? 36 : n <= 4 ? 29 : n <= 8 ? 23 : 19) * u;
+        ctx.font = `800 ${cfs}px ${FONT}`;
         const lines = wrapText(ctx, it.text, S - 16 * u, 4);
-        const tlh = fs * 1.25, ty0 = iy + slotH / 2 - (lines.length - 1) * tlh / 2;
+        const tlh = cfs * 1.25, ty0 = iy + slotH / 2 - (lines.length - 1) * tlh / 2;
         lines.forEach((ln, k) => ctx.fillText(ln, x + S / 2, ty0 + k * tlh));
       }
       ctx.restore();
@@ -859,34 +884,48 @@ async function exportPNG(ratio) {
     y += rh;
   });
 
-  /* 网格线：外框 + 行分隔 + 标签列分隔 */
+  /* 网格线：外框（内缩半线宽防裁切）+ 行分隔 + 标签列分隔 */
   ctx.strokeStyle = T.line;
   ctx.lineWidth = bw;
-  ctx.strokeRect(gx, gy, gridW, gridH);
+  ctx.strokeRect(bw / 2, bw / 2, W - bw, L.gridH - bw);
   ctx.beginPath();
-  let ly = gy;
+  let ly = 0;
   for (let i = 0; i < data.tiers.length - 1; i++) {
     ly += rowHeights[i];
-    ctx.moveTo(gx, ly); ctx.lineTo(gx + gridW, ly);
+    ctx.moveTo(0, ly); ctx.lineTo(W, ly);
   }
-  ctx.moveTo(gx + labelW, gy); ctx.lineTo(gx + labelW, gy + gridH);
+  ctx.moveTo(labelW, 0); ctx.lineTo(labelW, L.gridH);
   ctx.stroke();
-
-  /* 底部声明条：黑底白字，与外框咬合成表格的最后一行；字号自适应，永远单行不截断 */
-  if (data.footnote) {
-    const fy = gy + gridH;
-    ctx.fillStyle = T.line;
-    ctx.fillRect(gx - bw / 2, fy - bw / 2, gridW + bw, footH + bw / 2);
-    let ffs = 20 * u;
-    ctx.font = `500 ${ffs}px ${FONT}`;
-    const maxW = gridW - 40 * u, tw = ctx.measureText(data.footnote).width;
-    if (tw > maxW) ctx.font = `500 ${ffs * maxW / tw}px ${FONT}`;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(data.footnote, gx + gridW / 2, fy + footH / 2 + 1 * u);
-  }
   ctx.restore();
 
+  /* 底部声明条：满幅黑底白字，字号自适应、永远单行不截断 */
+  if (data.footnote) {
+    const fy = H - footH;
+    ctx.fillStyle = T.line;
+    ctx.fillRect(0, fy, W, footH);
+    let ffs = 20 * u;
+    ctx.font = `500 ${ffs}px ${FONT}`;
+    const maxW = W - 40 * u, tw = ctx.measureText(data.footnote).width;
+    if (tw > maxW) ctx.font = `500 ${ffs * maxW / tw}px ${FONT}`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(data.footnote, W / 2, fy + footH / 2 + 1 * u);
+  }
+
   cv.toBlob(b => download(b, `${data.title || 'hangtola'}-${ratio.replace(':', 'x')}.png`), 'image/png');
+}
+
+/* ============================================================
+   软键盘监听：visualViewport 收缩量即键盘高度，写入 --kb，
+   面板 bottom 用 max() 自动上浮，输入框不被键盘盖住
+   ============================================================ */
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const updateKb = () => {
+    const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  };
+  vv.addEventListener('resize', updateKb);
+  vv.addEventListener('scroll', updateKb);
 }
 
 /* ============================================================
