@@ -1,0 +1,23 @@
+# [INPUT]: 依赖 src/index.ts 入口、HangtolaAgent Durable Object 与（P3 起）R2/Workflow 绑定
+# [OUTPUT]: 对外提供 hangtola-agent Worker 运行时配置：DO SQLite 迁移、nodejs 兼容、模型密钥经 wrangler secret 注入
+# [POS]: workers/hangtola 的部署真相源；P6 前与根 wrangler.toml（assets-only 生产）并存，届时接管 hangtola.app
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+name = "hangtola-agent"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "HANGTOLA_AGENT"
+class_name = "HangtolaAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["HangtolaAgent"]
+
+[vars]
+# 开发默认走确定性模型桩；生产由 secret DEEPSEEK_API_KEY + MOCK_MODELS="0" 接管
+MOCK_MODELS = "1"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+DEEPSEEK_MODEL = "deepseek-chat"

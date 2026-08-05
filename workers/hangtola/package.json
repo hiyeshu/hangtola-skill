@@ -1,0 +1,21 @@
+{
+  "name": "@hangtola/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^0.2.14",
+    "@hangtola/domain": "*",
+    "agents": "^0.0.109",
+    "ai": "^4.3.16",
+    "hono": "^4.7.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "wrangler": "^4.24.0"
+  }
+}

@@ -4,6 +4,7 @@ Agent Skills 开放规范 + 原生 HTML/CSS/JavaScript + TypeScript workspaces +
 <directory>
 skills/ - skills.sh 可发现的 Skill 集合；当前仅含 hangtola
 packages/ - TypeScript workspace 包；domain 为四端共享领域真相（1 子目录: domain）
+workers/ - Cloudflare Workers；hangtola 为 Agents SDK 运行时（DO + HTTP，见其 L2 地图）
 scripts/ - 仓库级检查与站点组合工具，不进入 Skill 运行时工作流
 site/ - npm run build 生成的部署产物，含站点专属外壳，永不手改且不入 Git
 </directory>
@@ -37,6 +38,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - P2 落地 HangtolaAgent DO：每榜一实例、#commit 唯一写入路径、不可变 revision 链与 revert-as-new-revision、ws 协议、DeepSeek 结构化 NL→Patch（修复一次/失败零 revision）、MOCK 桩验收 14 项全绿 + 真模型生成/改榜双实测贯通。
 2026-08-06 - P1 落地共享领域模块：workspaces + packages/domain（V2 schema、迁移三桥、patch 应用器）、代码生成契约镜像接管 render-board 校验（金样零 diff）、check.mjs 焊入 codegen/类型/测试门禁。
 2026-08-03 - 迁移至 skills.sh 兼容目录；加入多图输入、纯文字智能配色、确定性渲染脚本与 IndexedDB。
 2026-08-03 - 同步 minitool-build 通用改进：软键盘上浮、安全区、无刷新重置、满幅比例导出。

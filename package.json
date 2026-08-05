@@ -4,7 +4,8 @@
   "type": "module",
   "description": "夯到拉排行榜：多模态 Agent Skill + 单文件 tier list 编辑器",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "workers/*"
   ],
   "scripts": {
     "build": "node scripts/build-site.mjs",
