@@ -10,8 +10,9 @@ import { getAgentByName, routeAgentRequest } from 'agents';
 import { newBoardId } from '@hangtola/domain';
 import type { Env } from './env.js';
 import { HangtolaAgent } from './agent/hangtola-agent.js';
+import { GenerateBoardWorkflow } from './workflows/generate-board.js';
 
-export { HangtolaAgent };
+export { HangtolaAgent, GenerateBoardWorkflow };
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -94,6 +95,44 @@ app.post('/api/boards/:id/generate', async (c) => {
   const result = await agent.generateRpc(editRef(c), input);
   if (!result.ok) return c.json(result, result.error === 'forbidden' ? 403 : 500);
   return c.json(result);
+});
+
+/* ---- 资产：DO 发一次性令牌 → Worker 中转写 R2 → 公开读透 ---- */
+app.post('/api/boards/:id/assets/prepare', async (c) => {
+  const boardId = c.req.param('id');
+  const agent = await agentOf(c.env, boardId);
+  const { files } = await c.req.json<{ files: { name: string; mime: string }[] }>();
+  const result = await agent.prepareAssets(editRef(c), files ?? []);
+  if (!result.ok) return c.json({ error: 'forbidden' }, 403);
+  return c.json({
+    assets: result.assets.map((a) => ({
+      assetId: a.assetId,
+      uploadUrl: `/api/uploads/${boardId}/${a.assetId}?token=${a.token}`,
+    })),
+  });
+});
+
+app.put('/api/uploads/:boardId/:assetId', async (c) => {
+  const agent = await agentOf(c.env, c.req.param('boardId'));
+  const verified = await agent.verifyAssetUpload(c.req.param('assetId'), c.req.query('token') ?? '');
+  if (!verified.ok) return c.json({ error: 'forbidden' }, 403);
+  const body = await c.req.arrayBuffer();
+  if (body.byteLength === 0) return c.json({ error: 'empty-body' }, 400);
+  await c.env.ASSETS.put(verified.r2Key, body, { httpMetadata: { contentType: verified.mime } });
+  await agent.markAssetUploaded(c.req.param('assetId'));
+  return c.json({ ok: true }, 201);
+});
+
+app.get('/assets/:boardId/:assetId', async (c) => {
+  const key = `boards/${c.req.param('boardId')}/assets/${c.req.param('assetId')}`;
+  const object = await c.env.ASSETS.get(key);
+  if (!object) return c.notFound();
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType ?? 'application/octet-stream',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    },
+  });
 });
 
 app.get('/healthz', (c) => c.json({ ok: true }));

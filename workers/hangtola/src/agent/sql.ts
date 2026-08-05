@@ -37,7 +37,28 @@ export const DDL: string[] = [
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
+  `CREATE TABLE IF NOT EXISTS assets (
+     id TEXT PRIMARY KEY,
+     r2_key TEXT NOT NULL,
+     mime TEXT NOT NULL,
+     name TEXT NOT NULL,
+     order_index INTEGER NOT NULL,
+     state TEXT NOT NULL,
+     upload_token_hash TEXT NOT NULL,
+     created_at INTEGER NOT NULL
+   )`,
 ];
+
+export interface AssetRow {
+  id: string;
+  r2_key: string;
+  mime: string;
+  name: string;
+  order_index: number;
+  state: string;
+  upload_token_hash: string;
+  created_at: number;
+}
 
 export interface RevisionRow {
   id: string;

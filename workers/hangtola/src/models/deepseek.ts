@@ -38,8 +38,17 @@ export interface ReviseResult {
   reply: string;
 }
 
+/** 生成管线喂给合成步骤的候选（识图与文字来源已在工作流侧归一） */
+export interface Candidate {
+  text: string;
+  note: string;
+  hasImage: boolean;
+  evidence: string;                 // 'supported' | 'insufficient' + 摘要拼接，供模型参考
+}
+
 export interface ModelClient {
   draftBoard(input: { topic: string; extraText?: string }): Promise<LegacyDraft>;
+  synthesizeBoard(input: { topic: string; candidates: Candidate[] }): Promise<LegacyDraft>;
   reviseOps(doc: BoardDocumentV2T, instruction: string): Promise<ReviseResult>;
 }
 
@@ -100,6 +109,23 @@ function realClient(env: WorkerEnv): ModelClient {
       return object as LegacyDraft;
     },
 
+    async synthesizeBoard({ topic, candidates }) {
+      const { object } = await generateObject({
+        model,
+        schema: DraftSchema,
+        prompt: [
+          `你是"夯到拉"排行榜的定档专家。五档从强到弱：夯（超神，稀缺≤20%）、顶级、人上人、NPC（平庸）、拉完了（有明确硬伤）。`,
+          `主题：${topic}`,
+          `候选条目（含内部线索与证据状态，禁止新增或改名，逐一定档或放 pool）：`,
+          JSON.stringify(candidates),
+          `要求：先设计 3~5 个带权重的评价维度，再按加权判断把每个候选放入五档或 pool；`,
+          `evidence 为 insufficient 的候选靠常识判断并在 note 注明证据不足；note 写一句内部定档依据；`,
+          `纯文字候选（hasImage=false）可按语义选受控色，带图候选 color 一律 null。`,
+        ].join('\n'),
+      });
+      return object as LegacyDraft;
+    },
+
     async reviseOps(doc, instruction) {
       const prompt = (hint: string) => [
         `你在修改一块"夯到拉"榜单。当前文档（BoardDocumentV2）：`,
@@ -146,6 +172,19 @@ function mockClient(): ModelClient {
         dimensions: [{ name: '综合', weight: 3 }],
         tiers,
         pool: [{ text: `${topic}·待定`, note: '证据不足', color: null }],
+      };
+    },
+
+    async synthesizeBoard({ candidates }) {
+      const tiers = TIER_DEFS.map((def) => ({ key: def.key, items: [] as LegacyDraft['pool'] }));
+      candidates.forEach((c, i) => {
+        tiers[i % 4]!.items.push({ text: c.text, note: c.note || `mock 定档 ${i + 1}`, color: null });
+      });
+      return {
+        title: '',
+        dimensions: [{ name: '综合', weight: 3 }],
+        tiers,
+        pool: [],
       };
     },
 

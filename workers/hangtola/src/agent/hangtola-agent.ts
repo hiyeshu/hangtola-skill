@@ -22,8 +22,9 @@ import {
   type PublicBoardView,
 } from '@hangtola/domain';
 import type { Env } from '../env.js';
-import { DDL, type RevisionRow } from './sql.js';
+import { DDL, type RevisionRow, type AssetRow } from './sql.js';
 import { createModelClient } from '../models/deepseek.js';
+import { draftToV2, type DraftShape } from '@hangtola/domain';
 
 interface Generation {
   status: 'idle' | 'running' | 'failed' | 'done';
@@ -45,9 +46,6 @@ type CommitOutcome =
   | { ok: false; error: 'invalid'; message: string };
 
 const IDLE: Generation = { status: 'idle', stage: '', pct: 0 };
-
-/** 资产 URL 生成：P2 只有 dataurl 图片，占位实现留给 P3 接 R2 */
-const assetUrl = (assetId: string): string => `/assets/${assetId}`;
 
 export class HangtolaAgent extends Agent<Env, PublicState> {
   override initialState: PublicState = { publicDoc: null, head: null, generation: IDLE };
@@ -108,8 +106,9 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
              VALUES (${id}, ${parent}, ${input.kind}, ${input.summary}, ${input.author},
                      ${Date.now()}, ${patchJson}, ${JSON.stringify(input.doc)})`;
     this.#metaSet('head_revision', id);
+    const boardId = this.#metaGet('board_id') ?? input.doc.id;
     this.setState({
-      publicDoc: toPublicView(input.doc, assetUrl),
+      publicDoc: toPublicView(input.doc, (assetId) => `/assets/${boardId}/${assetId}`),
       head: id,
       generation: this.state.generation,
     });
@@ -252,40 +251,86 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
     return { ok: true, reply, revisionId, summary: revisionId ? result.summary : null };
   }
 
-  /** P2：纯文字主题生成（内联执行 + 分阶段进度；P3 迁移到可恢复 Workflow） */
+  /** P3：生成走可恢复 Workflow；本方法只建任务并点火 */
   async generateRpc(editKey: string, input: { topic: string; extraText?: string }):
-    Promise<{ ok: false; error: string } | { ok: true; head: string }> {
+    Promise<{ ok: false; error: string } | { ok: true; taskId: string }> {
     if (!(await this.verifyEdit(editKey))) return { ok: false, error: 'forbidden' };
-    const taskId = `task_${Date.now()}`;
     const boardId = this.#metaGet('board_id')!;
+    const taskId = `task_${Date.now()}_${newRevisionId().slice(-6)}`;
     this.sql`INSERT INTO tasks (id, kind, status, progress_json, input_json, error, created_at, updated_at)
              VALUES (${taskId}, ${'generate'}, ${'running'}, ${'{}'}, ${JSON.stringify(input)}, ${null}, ${Date.now()}, ${Date.now()})`;
-    const step = (stage: string, pct: number) => {
-      this.#setGeneration({ status: 'running', stage, pct });
-      this.sql`UPDATE tasks SET progress_json = ${JSON.stringify({ stage, pct })}, updated_at = ${Date.now()}
-               WHERE id = ${taskId}`;
-    };
-    try {
-      step('寻找候选', 20);
-      const draft = await createModelClient(this.env).draftBoard(input);
-      step('确定维度', 55);
-      const doc = migrateLegacyToV2(
-        { ...draft, id: boardId, footnote: '', savedAt: new Date().toISOString() },
-        { newItemId },
-      );
-      step('生成榜单', 90);
-      const head = this.#writeRevision({
-        kind: 'generate', doc, summary: `按主题「${input.topic}」生成榜单`, author: 'agent',
-      });
-      this.sql`UPDATE tasks SET status = ${'done'}, updated_at = ${Date.now()} WHERE id = ${taskId}`;
-      this.#setGeneration({ status: 'done', stage: '完成', pct: 100 });
-      return { ok: true, head };
-    } catch (error) {
-      this.sql`UPDATE tasks SET status = ${'failed'}, error = ${String(error)}, updated_at = ${Date.now()}
-               WHERE id = ${taskId}`;
-      this.#setGeneration({ status: 'failed', stage: '生成失败', pct: 0, detail: String(error) });
-      return { ok: false, error: String(error) };
+    this.#setGeneration({ status: 'running', stage: '排队中', pct: 2 });
+    await this.env.GEN_WORKFLOW.create({ id: taskId, params: { boardId, taskId, input } });
+    return { ok: true, taskId };
+  }
+
+  /* ---- Workflow 回调面（仅 Worker 内部 RPC 可达，不经 HTTP 暴露） ---- */
+
+  reportProgress(taskId: string, stage: string, pct: number): void {
+    this.#setGeneration({ status: 'running', stage, pct });
+    this.sql`UPDATE tasks SET progress_json = ${JSON.stringify({ stage, pct })}, updated_at = ${Date.now()}
+             WHERE id = ${taskId}`;
+  }
+
+  /** 幂等：Workflow 重放 commit 步骤时返回既有 head，不产生重复 revision */
+  commitGenerated(taskId: string, draft: DraftShape, imageByText: Record<string, string>):
+    { ok: true; head: string } {
+    const rows = this.sql`SELECT status FROM tasks WHERE id = ${taskId}` as { status: string }[];
+    if (rows[0]?.status === 'done') return { ok: true, head: this.#headId()! };
+    const boardId = this.#metaGet('board_id')!;
+    const doc = draftToV2(draft, imageByText, { boardId, newItemId });
+    const head = this.#writeRevision({
+      kind: 'generate', doc, summary: '生成榜单', author: 'agent',
+    });
+    this.sql`UPDATE tasks SET status = ${'done'}, updated_at = ${Date.now()} WHERE id = ${taskId}`;
+    this.#setGeneration({ status: 'done', stage: '完成', pct: 100 });
+    return { ok: true, head };
+  }
+
+  failTask(taskId: string, error: string): void {
+    this.sql`UPDATE tasks SET status = ${'failed'}, error = ${error}, updated_at = ${Date.now()}
+             WHERE id = ${taskId}`;
+    this.#setGeneration({ status: 'failed', stage: '生成失败', pct: 0, detail: error });
+  }
+
+  /* ---- 资产：DO 发一次性上传令牌，Worker 中转写 R2 ---- */
+
+  async prepareAssets(editKey: string, files: { name: string; mime: string }[]):
+    Promise<{ ok: false } | { ok: true; assets: { assetId: string; token: string }[] }> {
+    if (!(await this.verifyEdit(editKey))) return { ok: false };
+    const boardId = this.#metaGet('board_id')!;
+    const maxRows = this.sql`SELECT COALESCE(MAX(order_index), -1) AS max_index FROM assets` as { max_index: number }[];
+    let orderIndex = (maxRows[0]?.max_index ?? -1) + 1;
+    const assets: { assetId: string; token: string }[] = [];
+    for (const file of files) {
+      if (!file.mime.startsWith('image/')) continue;
+      const assetId = `ast_${newRevisionId().slice(4)}`.slice(0, 20);
+      const token = newEditKey();
+      this.sql`INSERT INTO assets (id, r2_key, mime, name, order_index, state, upload_token_hash, created_at)
+               VALUES (${assetId}, ${`boards/${boardId}/assets/${assetId}`}, ${file.mime}, ${file.name},
+                       ${orderIndex}, ${'pending'}, ${await hashEditKey(token)}, ${Date.now()})`;
+      assets.push({ assetId, token });
+      orderIndex += 1;
     }
+    return { ok: true, assets };
+  }
+
+  async verifyAssetUpload(assetId: string, token: string):
+    Promise<{ ok: false } | { ok: true; r2Key: string; mime: string }> {
+    const rows = this.sql`SELECT * FROM assets WHERE id = ${assetId}` as unknown as AssetRow[];
+    const row = rows[0];
+    if (!row || row.state !== 'pending') return { ok: false };
+    if ((await hashEditKey(token)) !== row.upload_token_hash) return { ok: false };
+    return { ok: true, r2Key: row.r2_key, mime: row.mime };
+  }
+
+  markAssetUploaded(assetId: string): void {
+    this.sql`UPDATE assets SET state = ${'uploaded'} WHERE id = ${assetId}`;
+  }
+
+  listUploadedAssets(): { id: string; r2Key: string; mime: string; name: string; orderIndex: number }[] {
+    const rows = this.sql`SELECT * FROM assets WHERE state = ${'uploaded'} ORDER BY order_index ASC` as unknown as AssetRow[];
+    return rows.map((r) => ({ id: r.id, r2Key: r.r2_key, mime: r.mime, name: r.name, orderIndex: r.order_index }));
   }
 
   /* ============================================================

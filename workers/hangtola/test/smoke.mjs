@@ -27,12 +27,24 @@ check('建榜返回 boardId + editRef + 双链接',
 const { boardId, editRef } = created;
 const auth = { 'X-Edit-Ref': editRef };
 
-/* 2. 主题生成（mock：extraText 拆条目轮转分档） */
+/* 2. 主题生成（Workflow 异步：轮询公开状态至 done） */
+async function waitGeneration(id, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const snapshot = await json(await api(`/api/boards/${id}`));
+    if (snapshot.generation.status === 'done') return snapshot;
+    if (snapshot.generation.status === 'failed') throw new Error(`生成失败: ${snapshot.generation.detail}`);
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error('生成超时');
+}
 const gen = await json(await api(`/api/boards/${boardId}/generate`, {
   method: 'POST', headers: auth,
   body: JSON.stringify({ topic: '旗舰手机', extraText: '小米17、iPhone 17、三星S26、一加14、努比亚Z70' }),
 }));
-check('主题生成成功', gen.ok === true, JSON.stringify(gen));
+check('生成任务受理', gen.ok === true && !!gen.taskId, JSON.stringify(gen));
+await waitGeneration(boardId);
+check('Workflow 生成完成', true);
 
 /* 3. 公开投影：无私有字段 */
 const pub = await json(await api(`/api/boards/${boardId}`));
@@ -118,5 +130,50 @@ const forbidden = await api(`/api/boards/${boardId}/patch`, {
 });
 check('无 editRef 修改 → 403', forbidden.status === 403);
 
-console.log(failures === 0 ? '\n★ P2 冒烟全部通过' : `\n✗ ${failures} 项失败`);
+/* ============================================================
+   P3：图片上传 → 识图 → 证据 → 定档（mock 全链路确定性）
+   ============================================================ */
+const b2 = await json(await api('/api/boards', { method: 'POST' }));
+const auth2 = { 'X-Edit-Ref': b2.editRef };
+const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (ch) => ch.charCodeAt(0));
+
+const prep = await json(await api(`/api/boards/${b2.boardId}/assets/prepare`, {
+  method: 'POST', headers: auth2,
+  body: JSON.stringify({ files: [
+    { name: '小米17.png', mime: 'image/png' },
+    { name: 'unknown-shot.png', mime: 'image/png' },
+    { name: '三星S26.png', mime: 'image/png' },
+  ] }),
+}));
+check('资产 prepare 返回 3 个上传地址', prep.assets?.length === 3, JSON.stringify(prep));
+for (const asset of prep.assets) {
+  const put = await fetch(`${BASE}${asset.uploadUrl}`, { method: 'PUT', body: PNG });
+  check(`上传 ${asset.assetId} 成功`, put.status === 201, String(put.status));
+}
+const badToken = await fetch(`${BASE}${prep.assets[0].uploadUrl.replace(/token=.*/, 'token=bogus')}`, { method: 'PUT', body: PNG });
+check('坏 token 上传被拒（已上传态同样拒绝）', badToken.status === 403);
+
+const gen2 = await json(await api(`/api/boards/${b2.boardId}/generate`, {
+  method: 'POST', headers: auth2, body: JSON.stringify({ topic: '旗舰手机' }),
+}));
+check('图片生成任务受理', gen2.ok === true, JSON.stringify(gen2));
+const snap2 = await waitGeneration(b2.boardId);
+
+const doc2 = snap2.publicDoc;
+const flatTiered = doc2.tiers.flatMap((t) => t.items.map((i) => ({ ...i, tier: t.key })));
+const xiaomi = flatTiered.find((i) => i.text === '小米17');
+const samsung = flatTiered.find((i) => i.text === '三星S26');
+check('识图候选按上传序入档（小米17 在 三星S26 之前）',
+  !!xiaomi && !!samsung && flatTiered.indexOf(xiaomi) < flatTiered.indexOf(samsung),
+  JSON.stringify(flatTiered.map((i) => i.text)));
+check('图片条目携带资产 URL', xiaomi?.image?.startsWith('/assets/') === true, xiaomi?.image);
+const unknownItem = doc2.pool.find((i) => i.text.startsWith('未识别图片') || i.text.startsWith('待确认：'));
+check('识图失败项被强制押入 pool（名字只来自观察线索，不臆造）',
+  !!unknownItem && unknownItem.image?.startsWith('/assets/'),
+  JSON.stringify(doc2.pool));
+
+const assetRes = await fetch(`${BASE}${xiaomi.image}`);
+check('资产读透可访问且带 image/png', assetRes.status === 200 && assetRes.headers.get('content-type') === 'image/png');
+
+console.log(failures === 0 ? '\n★ P2+P3 冒烟全部通过' : `\n✗ ${failures} 项失败`);
 process.exit(failures === 0 ? 0 : 1);

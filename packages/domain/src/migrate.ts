@@ -149,6 +149,50 @@ export async function toLegacyBoard(
 }
 
 /* ============================================================
+   草稿 → V2：生成管线出口（图片经 assetId 关联，不走 legacy 桥）
+   ============================================================ */
+import { TIER_KEYS, isControlledColor as isCtrl, type DraftShape } from './rank.js';
+
+export function draftToV2(
+  draft: DraftShape,
+  imageByText: Record<string, string>,      // 条目名 → assetId
+  opts: { boardId: string; newItemId: () => string; now?: () => number },
+): BoardDocumentV2T {
+  const now = opts.now ?? Date.now;
+  const toItem = (item: { text: string; note: string; color: string | null }): ItemV2T => {
+    const assetId = imageByText[item.text];
+    const image = assetId ? ({ kind: 'asset', assetId } as const) : null;
+    const colorRaw = (item.color ?? '').toLowerCase();
+    return {
+      id: opts.newItemId(),
+      text: item.text,
+      image,
+      note: item.note,
+      color: !image && isCtrl(colorRaw) ? (colorRaw as ItemV2T['color']) : null,
+      evidence: [],
+    };
+  };
+  const byKey = new Map(draft.tiers.map((t) => [t.key, t.items]));
+  return BoardDocumentV2.parse({
+    schemaVersion: 2,
+    id: opts.boardId,
+    title: cleanText(draft.title),
+    footnote: '',
+    savedAt: now(),
+    dimensions: draft.dimensions
+      .map((d) => ({ name: cleanText(d.name), weight: clampWeight(d.weight) }))
+      .filter((d) => d.name),
+    tiers: TIER_DEFS.map((def, i) => ({
+      key: def.key,
+      label: def.label,
+      color: def.color,
+      items: (byKey.get(TIER_KEYS[i]!) ?? []).map(toItem),
+    })),
+    pool: draft.pool.map(toItem),
+  });
+}
+
+/* ============================================================
    V2 → 公开投影：viewUrl 能看到的一切，仅此而已
    ============================================================ */
 export interface PublicItem { id: string; text: string; image: string | null; color: string | null }
