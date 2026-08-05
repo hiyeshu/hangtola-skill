@@ -8,6 +8,7 @@
 import { readFile, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
+import { spawnSync } from 'node:child_process';
 
 const ROOT = process.cwd();
 const SKILL_DIR = path.join(ROOT, 'skills/hangtola');
@@ -18,6 +19,7 @@ const REQUIRED_FILES = [
   'assets/template.html',
   'references/input-contract.md',
   'scripts/render-board.js',
+  'scripts/board-validate.gen.js',
 ];
 
 function assert(condition, message) {
@@ -114,4 +116,15 @@ assert(!renderer.includes('caption'), '确定性渲染器不得保留短评字�
 const packageJson = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
 assert(packageJson.scripts?.build === 'node scripts/build-site.mjs', '部署构建必须经过独立 build-site.mjs');
 
-console.log(`检查通过：${REQUIRED_FILES.length} 个 Skill 文件、${scripts.length} 段模板脚本，部署外壳与 Skill 隔离。`);
+/* ============================================================
+   领域模块门禁：codegen 新鲜度 → 类型检查 → 测试
+   ============================================================ */
+function run(label, command, args) {
+  const result = spawnSync(command, args, { cwd: ROOT, stdio: 'inherit' });
+  assert(result.status === 0, `${label} 未通过`);
+}
+run('codegen 新鲜度', 'npx', ['tsx', 'packages/domain/scripts/emit-skill-validator.ts', '--check']);
+run('领域类型检查', 'npx', ['tsc', '--build', 'packages/domain']);
+run('领域测试', 'npx', ['vitest', 'run', '--silent']);
+
+console.log(`检查通过：${REQUIRED_FILES.length} 个 Skill 文件、${scripts.length} 段模板脚本，领域门禁全绿，部署外壳与 Skill 隔离。`);

@@ -1,26 +1,17 @@
 /**
- * [INPUT]: 依赖 Node.js 标准库、榜单 JSON、../assets/template.html 与 JSON 中可选的本地图片路径
+ * [INPUT]: 依赖 Node.js 标准库、榜单 JSON、../assets/template.html、./board-validate.gen.js（domain 代码生成的契约镜像）与 JSON 中可选的本地图片路径
  * [OUTPUT]: 对外提供 CLI，将校验并归一化后的榜单和离线图片安全嵌入独立 HTML
- * [POS]: hangtola 技能的 RedSkill 兼容确定性生成边界，模块语义由上级 package.json 固定，替代 Agent 手工拼接 HTML 与 base64
+ * [POS]: hangtola 技能的 RedSkill 兼容确定性生成边界，模块语义由上级 package.json 固定，替代 Agent 手工拼接 HTML 与 base64；形状规则真相在 packages/domain
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateAndNormalizeBoard } from './board-validate.gen.js';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_TEMPLATE = path.resolve(SCRIPT_DIR, '../assets/template.html');
-const TIER_DEFS = [
-  { key: 'hang', label: '夯', color: '#fb2018' },
-  { key: 'top', label: '顶级', color: '#ffa640' },
-  { key: 'upper', label: '人上人', color: '#fbf600' },
-  { key: 'npc', label: 'NPC', color: '#fdf1c7' },
-  { key: 'la', label: '拉完了', color: '#ffffff' },
-];
-const TEXT_COLORS = new Set([
-  '#ffffff', '#ff453a', '#ff9f0a', '#ffd60a', '#30d158', '#0a84ff', '#bf5af2',
-]);
 const MIME_BY_EXTENSION = new Map([
   ['.avif', 'image/avif'],
   ['.gif', 'image/gif'],
@@ -73,18 +64,6 @@ function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizeDimensions(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((dimension) => ({
-      name: cleanText(dimension?.name),
-      weight: Number.isFinite(Number(dimension?.weight))
-        ? Math.min(5, Math.max(1, Number(dimension.weight)))
-        : 1,
-    }))
-    .filter((dimension) => dimension.name);
-}
-
 async function embedImage(value, baseDirectory) {
   const image = cleanText(value);
   if (!image) return null;
@@ -103,66 +82,11 @@ async function embedImage(value, baseDirectory) {
   return `data:${mime};base64,${bytes.toString('base64')}`;
 }
 
-async function normalizeItem(value, baseDirectory, location) {
-  const text = cleanText(value?.text);
-  const note = cleanText(value?.note);
-  const image = await embedImage(value?.image, baseDirectory);
-  if (!text && !image) {
-    throw new Error(`${location} 至少要有 text 或 image`);
-  }
-
-  return {
-    text,
-    image,
-    note,
-    color: !image && TEXT_COLORS.has(cleanText(value?.color).toLowerCase())
-      ? cleanText(value.color).toLowerCase()
-      : null,
-  };
-}
-
-async function normalizeItems(value, baseDirectory, location) {
-  if (!Array.isArray(value)) return [];
-  return Promise.all(value.map((item, index) =>
-    normalizeItem(item, baseDirectory, `${location}[${index}]`)));
-}
-
-async function normalizeBoard(value, baseDirectory) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('榜单 JSON 顶层必须是对象');
-  }
-
-  const providedTiers = new Map(
-    (Array.isArray(value.tiers) ? value.tiers : [])
-      .filter((tier) => tier && typeof tier === 'object')
-      .map((tier) => [tier.key, tier]),
-  );
-  const tiers = [];
-  for (const definition of TIER_DEFS) {
-    const source = providedTiers.get(definition.key) || {};
-    tiers.push({
-      ...definition,
-      label: cleanText(source.label) || definition.label,
-      items: await normalizeItems(source.items, baseDirectory, `tiers.${definition.key}.items`),
-    });
-  }
-
-  return {
-    id: cleanText(value.id) || `hangtola-${Date.now()}`,
-    title: cleanText(value.title),
-    footnote: cleanText(value.footnote),
-    savedAt: new Date().toISOString(),
-    dimensions: normalizeDimensions(value.dimensions),
-    tiers,
-    pool: await normalizeItems(value.pool, baseDirectory, 'pool'),
-  };
-}
-
 function escapeEmbeddedJson(value) {
   return JSON.stringify(value)
     .replaceAll('</script', '<\\/script')
-    .replaceAll('\u2028', '\\u2028')
-    .replaceAll('\u2029', '\\u2029');
+    .replaceAll(' ', '\\u2028')
+    .replaceAll(' ', '\\u2029');
 }
 
 function injectBoard(template, board) {
@@ -180,7 +104,10 @@ async function main() {
     readFile(options.template, 'utf8'),
   ]);
   const parsed = JSON.parse(source);
-  const board = await normalizeBoard(parsed, path.dirname(options.input));
+  const baseDirectory = path.dirname(options.input);
+  const board = await validateAndNormalizeBoard(parsed, {
+    embedImage: (value) => embedImage(value, baseDirectory),
+  });
   const html = injectBoard(template, board);
   await mkdir(path.dirname(options.output), { recursive: true });
   await writeFile(options.output, html, 'utf8');

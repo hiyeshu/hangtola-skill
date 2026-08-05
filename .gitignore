@@ -2,3 +2,5 @@
 site/
 node_modules/
 .wrangler/
+packages/*/dist/
+*.tsbuildinfo

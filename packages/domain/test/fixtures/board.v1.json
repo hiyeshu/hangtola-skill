@@ -1,0 +1,80 @@
+{
+  "id": "fixture-board",
+  "title": "金样榜单",
+  "footnote": "仅供测试",
+  "dimensions": [
+    {
+      "name": "性能",
+      "weight": 3
+    },
+    {
+      "name": "",
+      "weight": 9
+    },
+    {
+      "name": "口碑",
+      "weight": 0
+    }
+  ],
+  "tiers": [
+    {
+      "key": "hang",
+      "label": "",
+      "items": [
+        {
+          "text": "条目A",
+          "image": "red.png",
+          "note": "内部依据",
+          "color": "#ff453a"
+        },
+        {
+          "text": "纯文字B",
+          "image": null,
+          "note": "",
+          "color": "#0a84ff"
+        }
+      ]
+    },
+    {
+      "key": "top",
+      "label": "自定义顶级",
+      "items": [
+        {
+          "text": "",
+          "image": "red.png",
+          "note": "x",
+          "color": null
+        }
+      ]
+    },
+    {
+      "key": "unknown-key",
+      "label": "幽灵档",
+      "items": [
+        {
+          "text": "不应出现",
+          "image": null
+        }
+      ]
+    },
+    {
+      "key": "la",
+      "label": "拉完了",
+      "items": [
+        {
+          "text": "条目C",
+          "image": null,
+          "note": "",
+          "color": "#123456"
+        }
+      ]
+    }
+  ],
+  "pool": [
+    {
+      "text": "备选D",
+      "image": null,
+      "color": "INVALID"
+    }
+  ]
+}

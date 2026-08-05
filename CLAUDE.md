@@ -1,8 +1,9 @@
-# hangtola-skill - 多模态夯到拉榜单 Skill 与离线编辑器
-Agent Skills 开放规范 + 原生 HTML/CSS/JavaScript + Node.js CLI + Cloudflare Workers 静态资产
+# hangtola-skill - 多模态夯到拉榜单 Skill 与离线编辑器（v2 架构演进中）
+Agent Skills 开放规范 + 原生 HTML/CSS/JavaScript + TypeScript workspaces + Node.js CLI + Cloudflare Workers
 
 <directory>
 skills/ - skills.sh 可发现的 Skill 集合；当前仅含 hangtola
+packages/ - TypeScript workspace 包；domain 为四端共享领域真相（1 子目录: domain）
 scripts/ - 仓库级检查与站点组合工具，不进入 Skill 运行时工作流
 site/ - npm run build 生成的部署产物，含站点专属外壳，永不手改且不入 Git
 </directory>
@@ -11,12 +12,15 @@ site/ - npm run build 生成的部署产物，含站点专属外壳，永不手�
 skills/hangtola/SKILL.md - Skill 入口：多模态输入归一化、维度、调研、定档、呈现参数、生成与交付
 skills/hangtola/assets/template.html - Skill 生成 HTML 的干净编辑器模板真相源，不含部署站点推广控件
 skills/hangtola/package.json - 将公开 Skill 内 `.js` 显式限定为 ESM，隔离宿主或祖先目录的 Node 模块模式
-skills/hangtola/scripts/render-board.js - RedSkill 兼容的渲染 CLI，校验榜单 JSON、嵌入本地图片并安全注入模板
+skills/hangtola/scripts/render-board.js - RedSkill 兼容的渲染 CLI，经 board-validate.gen.js 校验、嵌入本地图片并安全注入模板
+skills/hangtola/scripts/board-validate.gen.js - packages/domain 代码生成的零依赖契约镜像，禁手改，npm run codegen 再生
+packages/domain/ - 领域真相源（见其 L2 地图）：schema/迁移/patch/rank/标识 + codegen 桥 + 测试
 scripts/build-site.mjs - 从干净模板组合 hangtola.app，注入 GitHub 图标与 Skill 复制入口
 README.md - GitHub 与 skills.sh 用户入口、通用安装命令和开发说明
-package.json - check/build/deploy 边界；build 经站点组合器生成 site/index.html
-wrangler.toml - assets-only Worker「hangtola」与 hangtola.app 自定义域配置
-.gitignore - 忽略 site、node_modules、Wrangler 缓存与系统文件
+package.json - workspaces 根与 check/build/test/typecheck/codegen/deploy 边界
+tsconfig.base.json - workspace 严格 TS 基线（ES2022 + bundler 解析）
+wrangler.toml - assets-only Worker「hangtola」与 hangtola.app 自定义域配置（P2 起演进为 Agents Worker）
+.gitignore - 忽略 site、node_modules、Wrangler 缓存、TS 构建产物与系统文件
 </config>
 
 架构决策:
@@ -33,6 +37,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - P1 落地共享领域模块：workspaces + packages/domain（V2 schema、迁移三桥、patch 应用器）、代码生成契约镜像接管 render-board 校验（金样零 diff）、check.mjs 焊入 codegen/类型/测试门禁。
 2026-08-03 - 迁移至 skills.sh 兼容目录；加入多图输入、纯文字智能配色、确定性渲染脚本与 IndexedDB。
 2026-08-03 - 同步 minitool-build 通用改进：软键盘上浮、安全区、无刷新重置、满幅比例导出。
 2026-08-03 - 产品化并部署 hangtola.app：透明 PNG、统一卡片框、深浅色与可编辑标题/声明。

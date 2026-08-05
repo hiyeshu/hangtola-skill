@@ -1,10 +1,22 @@
 {
   "name": "hangtola",
   "private": true,
+  "type": "module",
   "description": "夯到拉排行榜：多模态 Agent Skill + 单文件 tier list 编辑器",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "node scripts/build-site.mjs",
     "check": "node scripts/check.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --build packages/domain",
+    "codegen": "tsx packages/domain/scripts/emit-skill-validator.ts",
     "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
   }
 }
