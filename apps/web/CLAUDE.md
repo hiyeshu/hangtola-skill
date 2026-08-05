@@ -15,7 +15,7 @@ src/hosted/home.html + home.js: 首页统一输入（主题/条目/批量图混�
 src/hosted/board.html + board.js: 榜单页。围观者轻轮询公开投影只读渲染；持 editRef 者 ws 实时（auth/doc.full/doc.revision）+ 聊天改榜 + patch 摘要 toast 一键撤销（revert 到 parentId）+ 离线版/JSON 导出；渲染复用 .tier/.card-item 视觉，V2 与公开投影统一降维
 
 架构决策:
-托管页不复刻编辑器交互，先交付「看 + 聊 + 撤销 + 导出」；拖拽编辑动作 → PatchOp 的 seam 化（state.ts）为 P4b。
+托管编辑 = 领域 Patch：拖拽手势直接编译为 moveItem op 经 ws 提交（V2 条目 id 是抓手），本地零乐观更新，渲染只信服务端 doc.revision 回声；过期 base 收 patch.conflict 帧采用服务端版。离线编辑器保持本地模型不动——两个场景两种持久化，同一套领域语言。
 断线重连由 close 事件驱动，重连后服务端 doc.full 兜底恢复；聊天按钮随连接关闭复位防卡死。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

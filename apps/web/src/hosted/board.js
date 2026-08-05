@@ -51,6 +51,7 @@ function render(doc) {
 
 function card(item) {
   const el = document.createElement('div');
+  if (item.id) { el.dataset.itemId = item.id; el.dataset.itemText = item.text ?? ''; }
   const imageUrl = displayImage(item.image);
   if (imageUrl) {
     el.className = 'card-item is-img';
@@ -98,9 +99,12 @@ async function pollPublic() {
 }
 
 /* ---- 编辑者：ws 实时 + 聊天 + 撤销 + 导出 ---- */
+let activeSocket = null;
+
 function connectEditor() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket = new WebSocket(`${proto}://${location.host}/agents/hangtola-agent/${boardId}`);
+  activeSocket = socket;
   let undoTarget = null;
 
   socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'auth', editRef: editKey })));
@@ -139,6 +143,14 @@ function connectEditor() {
           clearTimeout(window.__toastTimer);
           window.__toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 6000);
         }
+        break;
+      case 'patch.conflict':
+        latestDoc = frame.doc; latestHead = frame.head;
+        render(frame.doc);
+        $('#toast-text').textContent = '榜单有新版本，已同步最新状态';
+        $('#toast').hidden = false;
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 5000);
         break;
       default:
         break;
@@ -180,6 +192,84 @@ $('#export-html').addEventListener('click', async () => {
   a.click();
 });
 
+/* ============================================================
+   编辑者拖拽：手势 → BoardPatchV1（moveItem）
+   本地不做乐观更新，渲染交给服务端 doc.revision 回声；
+   过期 base → patch.conflict 帧采用服务端版
+   ============================================================ */
+function enableDrag() {
+  const TIER_KEYS = ['hang', 'top', 'upper', 'npc', 'la'];
+  let drag = null;
+
+  const zoneOf = (el) => {
+    const tierBox = el?.closest('.tier-items');
+    if (!tierBox) return null;
+    if (tierBox.id === 'pool-items') return { tier: 'pool', box: tierBox };
+    const rowIndex = [...document.querySelectorAll('#board .tier .tier-items')].indexOf(tierBox);
+    return rowIndex >= 0 ? { tier: TIER_KEYS[rowIndex], box: tierBox } : null;
+  };
+
+  document.body.addEventListener('pointerdown', (e) => {
+    const cardEl = e.target.closest('.card-item');
+    if (!cardEl?.dataset.itemId || e.button > 0) return;
+    drag = { el: cardEl, sx: e.clientX, sy: e.clientY, started: false, ghost: null };
+  });
+
+  document.body.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (!drag.started) {
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) return;
+      drag.started = true;
+      const ghost = drag.el.cloneNode(true);
+      ghost.id = 'drag-ghost';
+      const rect = drag.el.getBoundingClientRect();
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      drag.el.classList.add('drag-source');
+    }
+    e.preventDefault();
+    drag.ghost.style.left = `${e.clientX}px`;
+    drag.ghost.style.top = `${e.clientY}px`;
+    document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+    zoneOf(document.elementFromPoint(e.clientX, e.clientY))?.box.classList.add('drag-over');
+  });
+
+  const endDrag = (e, cancelled) => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    if (!d.started) return;
+    d.ghost?.remove();
+    d.el.classList.remove('drag-source');
+    document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+    if (cancelled || !latestDoc || !latestHead || activeSocket?.readyState !== WebSocket.OPEN) return;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const zone = zoneOf(under);
+    if (!zone) return;
+    const cards = [...zone.box.querySelectorAll('.card-item')].filter((el) => el !== d.el);
+    const targetCard = under.closest('.card-item');
+    const index = targetCard && targetCard !== d.el ? Math.max(0, cards.indexOf(targetCard)) : cards.length;
+    const tierLabel = zone.tier === 'pool'
+      ? '备选区'
+      : latestDoc.tiers[TIER_KEYS.indexOf(zone.tier)]?.label ?? zone.tier;
+    activeSocket.send(JSON.stringify({
+      type: 'patch',
+      patch: {
+        schemaVersion: 'patch.v1',
+        boardId: latestDoc.id,
+        baseRevision: latestHead,
+        ops: [{ op: 'moveItem', itemId: d.el.dataset.itemId, to: { tier: zone.tier, index } }],
+        summary: `把「${d.el.dataset.itemText || '条目'}」移到${tierLabel}`,
+        author: { kind: 'web' },
+      },
+    }));
+  };
+  document.body.addEventListener('pointerup', (e) => endDrag(e, false));
+  document.body.addEventListener('pointercancel', (e) => endDrag(e, true));
+}
+
 /* ---- 启动 ---- */
 const snapshot = await pollPublic();
 if (snapshot) {
@@ -189,6 +279,6 @@ if (snapshot) {
       if (!s || s.generation.status !== 'running') clearInterval(timer);
     }, 800);
   }
-  if (editKey) connectEditor();
+  if (editKey) { connectEditor(); enableDrag(); }
   else setInterval(pollPublic, 3000);               // 围观者轻轮询
 }
