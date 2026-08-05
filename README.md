@@ -4,64 +4,70 @@
 
 [![skills.sh](https://skills.sh/b/hiyeshu/hangtola-skill)](https://skills.sh/hiyeshu/hangtola-skill)
 
-在线编辑：[hangtola.app](https://hangtola.app)
+**[hangtola.app](https://hangtola.app)** — 打开就能用：输入主题、丢一批图，自有 Agent 识图、搜证据、定维度、排榜单；接着说"把 A 降到 NPC"继续改，拖拽精排，一键撤销。
 
-Hangtola 是一个开放 Agent Skill，也是一份零依赖、离线可运行的单文件 tier list 编辑器。用户可以一次上传很多图片、为图片和纯文字条目填写名称，再让 AI 按自定义维度定档和排序。
+Hangtola 同时是四样东西，共用一套领域规则：
 
-## 安装 Skill
+| 入口 | 给谁用 |
+|---|---|
+| 网站 hangtola.app | 普通用户：统一输入 → 实时进度 → 可拖拽榜单 + 聊天改榜 |
+| `$hangtola` Skill | Claude Code / Codex 等 Agent：离线生成独立 HTML |
+| `hangtola` CLI | 终端与脚本：生成/修改/结构化操作/本地渲染 |
+| Remote MCP `hangtola.app/mcp` | 外部 Agent：七个工具操作同一块榜单 |
 
-通过 [skills.sh](https://skills.sh/) 使用的开放 `skills` CLI 安装：
+## 核心设计
+
+- **Agent 是入口，不是真相**：榜单事实 = `BoardDocument` + 不可变 Revision 链（每榜一个 Durable Object，SQLite 落盘）。任何修改（AI/网页/CLI/MCP）都编译为同一种 `BoardPatchV1`，经唯一写入路径提交；过期版本 409 冲突，绝不静默覆盖；撤销也是新版本，历史永不改写。
+- **无捏造是代码强制的**：识图失败/低置信的图片押入备选区、名字只来自观察线索；搜索失败标"证据不足"——由 `enforceGrounding` 在代码层兜底，不依赖提示词。
+- **匿名但有主**：公开 `viewUrl` 只见名称/图/档位；编辑密钥只在创建时出现一次（URL fragment 携带，服务端只存哈希），内部依据与对话仅编辑者可见。
+- **离线永远可用**：单文件编辑器（零依赖、双击即跑）是构建产物持续交付；云端榜单可随时导出为离线 HTML 或 JSON。
+
+## AI Skill（离线路径）
 
 ```bash
 npx skills add hiyeshu/hangtola-skill --skill hangtola
 ```
 
-CLI 会把同一份 Skill 安装到 Codex、Claude Code、Cursor、GitHub Copilot、Gemini CLI 等受支持 Agent。无需下载仓库内的私有打包格式。
+对 Agent 说「给 2026 的旗舰手机排个夯到拉」即可。维度与榜单记忆存于项目 `.hangtola/`；HTML 生成必须经 `skills/hangtola/scripts/render-board.js`（校验 schema、内嵌本地图片、安全注入）。
 
-安装后可以直接说：
+## CLI
 
-```text
-用 $hangtola 把我上传的这些图片和文字备注排成夯到拉。
+```bash
+hangtola generate "2026 旗舰手机" --extra "红米K90、真我GT8" --image a.png --image b.png
+hangtola revise <boardId> "把索尼升到 NPC，标题改成 XX"
+hangtola get <boardId> [--full]
+hangtola apply <boardId> patch.json     # 结构化修改；版本冲突打印最新文档，退出码 2
+hangtola revert <boardId> <revisionId>
+hangtola render board.json -o out.html  # 纯本地，不联网不经模型
+hangtola export <boardId> -o out.html
 ```
 
-## 能力
+editRef 自动存于 `~/.hangtola/boards.json`；`--base` 可指向任意部署。
 
-- **多图直传**：一次多选、拖入或粘贴；异步压缩后仍保持图片与说明的输入顺序。
-- **混合条目**：图片、图片配文和纯文字走同一套定档规则。
-- **只显示名字**：图片卡与纯文字卡只公开展示稳定名称；评价和取舍保存在内部依据中，不进入卡片与 PNG。
-- **AI 呈现参数**：纯文字背景色由 AI 按语义从受控调色板选择，模板自动保证前景可读。
-- **可视化精排**：拖拽跨档定档，也能在同档内调整先后；轻点卡片改名。
-- **跨端同构**：Web 与 minitool 共用“方图 + 单行名字”槽位和 3:4、4:3、16:9 铺满算法；档位文字随行高拟合，竖图与横图保持一致光学密度；图片嵌入 HTML，不依赖外链。
-- **大榜自动保存**：榜单写入 IndexedDB，避免多图轻易撞上 localStorage 容量上限。
+## Remote MCP
+
+端点 `https://hangtola.app/mcp`（streamable HTTP，无状态）。工具：`generate_board` / `revise_board` / `get_board` / `apply_board_patch` / `revert_board` / `prepare_asset_upload` / `export_board`。无 editRef 只能读公开投影。
 
 ## 仓库结构
 
 ```text
-skills/
-└── hangtola/
-    ├── SKILL.md                  # Agent 工作流与数据契约
-    ├── package.json              # 将 Skill 内 .js 明确为 ESM
-    ├── agents/openai.yaml        # Agent UI 元数据
-    ├── assets/template.html      # 独立编辑器与部署真相源
-    ├── references/input-contract.md
-    └── scripts/render-board.js   # RedSkill 兼容：JSON + 本地图片 → 独立 HTML
-scripts/check.mjs                 # 仓库质量门
-scripts/build-site.mjs            # 组合部署外壳，不修改 Skill 模板
-site/                             # 带站点专属入口的构建产物，不入 Git
+packages/domain/     # 四端共享领域真相：Zod schema、迁移桥、patch 应用器、无捏造强制
+packages/cli/        # hangtola 命令行
+workers/hangtola/    # Cloudflare Worker：HangtolaAgent DO + HTTP + MCP + 可恢复生成 Workflow + 托管页
+apps/web/            # 前端源：离线编辑器五部件（template.html 是构建产物）+ 托管站点模块
+skills/hangtola/     # 开放 Skill：SKILL.md + 模板 + render-board.js + domain 代码生成的校验镜像
+docs/geb/CONTEXT.md  # 领域概念地图（Board/Revision/Patch/Evidence/Asset/EditCapability）
 ```
-
-`skills.sh` 会从 GitHub 仓库发现 `SKILL.md`。首次有人运行上面的安装命令后，安装遥测会让该 Skill 自动进入目录；单 Skill 仓库不需要额外的 `skills.sh.json` 分组配置。
 
 ## 开发
 
 ```bash
-npm run check   # 校验 Skill 文件、资源引用和模板 JavaScript
-npm run build   # 从干净 Skill 模板组合 site/index.html
-npm run deploy  # 构建并部署 Cloudflare Worker 静态资产
+npm install
+npm run check    # codegen 新鲜度 + 模板零漂移 + 类型 + 测试 + Skill 契约门禁
+npm run build    # 重组离线模板 + 产出托管页 + 注入站点外壳
+npm run deploy   # 构建并部署 Cloudflare Worker（hangtola.app）
+cd workers/hangtola && npx wrangler dev    # 本地全功能（MOCK_MODELS=1 确定性模型桩）
+node workers/hangtola/test/smoke.mjs       # 25 项行为验收
 ```
 
-手工生成一份榜单：
-
-```bash
-node skills/hangtola/scripts/render-board.js board.json output.html
-```
+模型密钥经 `wrangler secret put DEEPSEEK_API_KEY / ARK_API_KEY / EXA_API_KEY` 注入，本地放 `workers/hangtola/.dev.vars`（git 忽略）。

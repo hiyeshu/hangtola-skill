@@ -13,7 +13,7 @@
     "test": "vitest run",
     "typecheck": "tsc --build packages/domain",
     "codegen": "tsx packages/domain/scripts/emit-skill-validator.ts",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy -c workers/hangtola/wrangler.toml"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

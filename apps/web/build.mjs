@@ -23,7 +23,7 @@ function buildOffline() {
 function hostedPage({ title, body, scripts }) {
   const head = T('head.html')
     .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
-  return `${head}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/hosted.css'), 'utf8')}</style>\n${body}\n${scripts.map((s) => `<script type="module">\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted', s), 'utf8')}</script>`).join('\n')}\n</body>\n</html>\n`;
+  return `${head}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/hosted.css'), 'utf8')}</style>\n</head>\n<body>\n${body}\n${scripts.map((s) => `<script type="module">\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted', s), 'utf8')}</script>`).join('\n')}\n</body>\n</html>\n`;
 }
 
 const mode = process.argv[2] ?? '--all';

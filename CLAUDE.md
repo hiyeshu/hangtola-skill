@@ -6,6 +6,7 @@ skills/ - skills.sh 可发现的 Skill 集合；当前仅含 hangtola
 packages/ - TypeScript workspace 包（2 子目录: domain, cli）；domain 为四端共享领域真相
 workers/ - Cloudflare Workers；hangtola 为 Agents SDK 运行时（DO + HTTP + 托管站点，见其 L2 地图）
 apps/ - 前端源真相；web 含离线编辑器五部件与托管站点模块（见其 L2 地图）
+docs/ - GEB 语义相总图；geb/CONTEXT.md 定义六实体不变式与协作关系
 scripts/ - 仓库级检查与站点组合工具，不进入 Skill 运行时工作流
 site/ - npm run build 生成的部署产物，含站点专属外壳，永不手改且不入 Git
 </directory>
@@ -17,11 +18,10 @@ skills/hangtola/package.json - 将公开 Skill 内 `.js` 显式限定为 ESM，�
 skills/hangtola/scripts/render-board.js - RedSkill 兼容的渲染 CLI，经 board-validate.gen.js 校验、嵌入本地图片并安全注入模板
 skills/hangtola/scripts/board-validate.gen.js - packages/domain 代码生成的零依赖契约镜像，禁手改，npm run codegen 再生
 packages/domain/ - 领域真相源（见其 L2 地图）：schema/迁移/patch/rank/标识 + codegen 桥 + 测试
-scripts/build-site.mjs - 从干净模板组合 hangtola.app，注入 GitHub 图标与 Skill 复制入口
+scripts/build-site.mjs - 部署适配器：驱动 apps/web 双目标构建，仅向托管首页注入 GitHub 图标与 Skill 复制控件
 README.md - GitHub 与 skills.sh 用户入口、通用安装命令和开发说明
-package.json - workspaces 根与 check/build/test/typecheck/codegen/deploy 边界
+package.json - workspaces 根与 check/build/test/typecheck/codegen/deploy 边界（deploy 指向 workers/hangtola/wrangler.toml）
 tsconfig.base.json - workspace 严格 TS 基线（ES2022 + bundler 解析）
-wrangler.toml - assets-only Worker「hangtola」与 hangtola.app 自定义域配置（P2 起演进为 Agents Worker）
 .gitignore - 忽略 site、node_modules、Wrangler 缓存、TS 构建产物与系统文件
 </config>
 
@@ -39,6 +39,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - P6 收官：docs/geb/CONTEXT.md 六实体总图；README 四入口叙事；build-site 改为托管首页外壳注入器；Worker 更名 hangtola 携自定义域接管 hangtola.app（撤 assets-only 配置）；生产真模型 + R2 + secrets 上线。
 2026-08-06 - P5 落地 CLI 与 Remote MCP：hangtola 七命令（保序上传/409 退出码 2/本地渲染转投 skills 渲染器）；/mcp 无状态七工具薄封装 DO；MCP 六项 + CLI 全命令 e2e 通过。
 2026-08-06 - P4a 落地托管站点：模板降格为构建产物（五部件切分逐字节重组+零漂移门禁）；首页统一输入→保序上传→生成进度→跳转；榜单页围观轮询/编辑者 ws 实时+聊天改榜+摘要撤销+离线版导出；ws 鉴权迁入 connection state 修复休眠丢态。
 2026-08-06 - P3 落地图片与调研管线：R2 资产链（DO 一次性令牌/Worker 中转/读透）、Seed 识图与 Exa 调研边界（降级不臆造）、可恢复生成 Workflow（每图一步/批次证据/幂等 commit）、enforceGrounding 代码层无捏造；冒烟 25 项全绿 + DO 持久化跨重启验证。
