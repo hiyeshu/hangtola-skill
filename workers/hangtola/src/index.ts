@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { getAgentByName, routeAgentRequest } from 'agents';
-import { newBoardId } from '@hangtola/domain';
+import { newBoardId, toLegacyBoard } from '@hangtola/domain';
 import type { Env } from './env.js';
 import { HangtolaAgent } from './agent/hangtola-agent.js';
 import { GenerateBoardWorkflow } from './workflows/generate-board.js';
@@ -133,6 +133,48 @@ app.get('/assets/:boardId/:assetId', async (c) => {
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
   });
+});
+
+/* ---- 导出：json = 完整 V2；html = 离线单文件（图片内嵌 dataURL，注入规则与 render-board 同构） ---- */
+app.get('/api/boards/:id/export', async (c) => {
+  const boardId = c.req.param('id');
+  const agent = await agentOf(c.env, boardId);
+  const full = await agent.getFullSnapshot(editRef(c));
+  if (!full.ok) return c.json({ error: 'forbidden' }, 403);
+  if ((c.req.query('format') ?? 'json') === 'json') return c.json(full.doc);
+
+  const legacy = await toLegacyBoard(full.doc, async (assetId) => {
+    const object = await c.env.ASSETS.get(`boards/${boardId}/assets/${assetId}`);
+    if (!object) throw new Error(`asset ${assetId} 缺失`);
+    const bytes = new Uint8Array(await object.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return `data:${object.httpMetadata?.contentType ?? 'image/png'};base64,${btoa(binary)}`;
+  });
+  const templateRes = await c.env.STATIC.fetch(new URL('/template.html', c.req.url));
+  const template = await templateRes.text();
+  /* 与 render-board.js 同构的安全注入（</script 与 U+2028/2029 转义） */
+  const embedded = JSON.stringify(legacy)
+    .replaceAll('</script', '<\\/script')
+    .replaceAll(' ', '\\u2028')
+    .replaceAll(' ', '\\u2029');
+  const marker = /(<script id="hangtola-data" type="application\/json">)[\s\S]*?(<\/script>)/;
+  if (!marker.test(template)) return c.json({ error: 'template-broken' }, 500);
+  const html = template.replace(marker, `$1${embedded}$2`);
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Disposition': `attachment; filename="hangtola-${boardId}.html"`,
+    },
+  });
+});
+
+/* ---- 榜单页：/b/:id 服务托管榜单外壳 ---- */
+app.get('/b/:id', async (c) => {
+  const page = await c.env.STATIC.fetch(new URL('/board.html', c.req.url));
+  return new Response(page.body, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 });
 
 app.get('/healthz', (c) => c.json({ ok: true }));

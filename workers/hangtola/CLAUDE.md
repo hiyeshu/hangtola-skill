@@ -5,9 +5,9 @@ Hangtola 自有 Agent 的运行时：每块榜单一个 Durable Object 实例，
 
 成员清单
 wrangler.toml: Worker 配置真相源——DO SQLite 迁移（new_sqlite_classes）、nodejs_compat、MOCK_MODELS 开发默认；密钥经 .dev.vars（本地，git 忽略）与 wrangler secret（生产）注入，永不入库
-src/index.ts: 唯一入口。Hono 路由零业务逻辑全部薄封装到 DO RPC；routeAgentRequest 先行接管 ws；X-Edit-Ref 头承载编辑能力；冲突 409、非法 422、越权 403 的映射只在这里
+src/index.ts: 唯一入口。Hono 路由零业务逻辑全部薄封装到 DO RPC；routeAgentRequest 先行接管 ws；X-Edit-Ref 头承载编辑能力；冲突 409、非法 422、越权 403 的映射只在这里；/b/:id 服务托管榜单壳、/api/boards/:id/export 出 JSON 或离线单文件（注入转义与 render-board 同构）；静态资产经 [assets] STATIC 绑定（public/ 由 apps/web 构建产出）
 src/env.ts: Env 绑定契约（DO 命名空间 + 模型环境变量）唯一出处
-src/agent/hangtola-agent.ts: DO 本体。#commit 是全部修改的唯一写入路径（校验 baseRevision → applyPatch → 写 revision → 广播）；revert 写新版本不改历史；chatRpc 模型编译失败零 revision；generateRpc 建任务并点火 Workflow；reportProgress/commitGenerated(幂等)/failTask 为 Workflow 回调面（仅 Worker 内 RPC 可达）；prepareAssets 发一次性上传令牌（哈希落盘）、verifyAssetUpload/markAssetUploaded/listUploadedAssets 守资产态；ws 帧 auth/patch/chat/revert/resync，未认证只收 State 同步；#authed 按连接 id 收窄广播
+src/agent/hangtola-agent.ts: DO 本体。#commit 是全部修改的唯一写入路径（校验 baseRevision → applyPatch → 写 revision → 广播）；revert 写新版本不改历史；chatRpc 模型编译失败零 revision；generateRpc 建任务并点火 Workflow；reportProgress/commitGenerated(幂等)/failTask 为 Workflow 回调面（仅 Worker 内 RPC 可达）；prepareAssets 发一次性上传令牌（哈希落盘）、verifyAssetUpload/markAssetUploaded/listUploadedAssets 守资产态；ws 帧 auth/patch/chat/revert/resync，未认证只收 State 同步；鉴权态存 connection state（跨 DO 休眠持久），广播按连接态收窄
 src/agent/sql.ts: 存储契约——meta/revisions/conversation/tasks/assets 建表 DDL 与行类型；assets 按 order_index 保上传序
 src/models/deepseek.ts: DeepSeek 边界（draftBoard 纯主题 / synthesizeBoard 候选定档 / reviseOps NL→ops），结构化输出修复一次仍败即放弃；MOCK 桩确定性可预言
 src/models/seed-vision.ts: Seed 2.0 Lite 识图边界（方舟 openai 兼容），observe(dataUrl)→结构化观察；MOCK 按文件名产出、unknown 前缀模拟失败

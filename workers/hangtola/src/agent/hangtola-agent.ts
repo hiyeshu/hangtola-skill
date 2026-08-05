@@ -50,8 +50,6 @@ const IDLE: Generation = { status: 'idle', stage: '', pct: 0 };
 export class HangtolaAgent extends Agent<Env, PublicState> {
   override initialState: PublicState = { publicDoc: null, head: null, generation: IDLE };
 
-  #authed = new Set<string>();
-
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     for (const statement of DDL) this.#exec(statement);
@@ -114,7 +112,7 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
     });
     this.#broadcastAuthed({
       type: 'doc.revision',
-      revision: { id, kind: input.kind, summary: input.summary, author: input.author },
+      revision: { id, kind: input.kind, summary: input.summary, author: input.author, parentId: parent },
       doc: input.doc,
     });
     return id;
@@ -345,13 +343,13 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
     if (frame.type === 'auth') {
       const ok = await this.verifyEdit(String(frame.editRef ?? ''));
       if (!ok) { connection.send(JSON.stringify({ type: 'auth.fail' })); return; }
-      this.#authed.add(connection.id);
+      connection.setState({ authed: true });          // 存连接态：跨 DO 休眠持久
       connection.send(JSON.stringify({ type: 'auth.ok' }));
       connection.send(JSON.stringify({ type: 'doc.full', doc: this.#currentDoc(), head: this.#headId() }));
       return;
     }
 
-    if (!this.#authed.has(connection.id)) {
+    if (!(connection.state as { authed?: boolean } | null)?.authed) {
       connection.send(JSON.stringify({ type: 'error', code: 'unauthed', message: '先发送 auth 帧' }));
       return;
     }
@@ -409,14 +407,10 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
     return { reply, revisionId, summary: revisionId ? result.summary : null };
   }
 
-  override async onClose(connection: Connection): Promise<void> {
-    this.#authed.delete(connection.id);
-  }
-
   #broadcastAuthed(frame: Record<string, unknown>): void {
     const payload = JSON.stringify(frame);
     for (const connection of this.getConnections()) {
-      if (this.#authed.has(connection.id)) connection.send(payload);
+      if ((connection.state as { authed?: boolean } | null)?.authed) connection.send(payload);
     }
   }
 }

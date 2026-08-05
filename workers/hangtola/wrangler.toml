@@ -16,6 +16,10 @@ class_name = "HangtolaAgent"
 tag = "v1"
 new_sqlite_classes = ["HangtolaAgent"]
 
+[assets]
+directory = "./public"
+binding = "STATIC"
+
 [[r2_buckets]]
 binding = "ASSETS"
 bucket_name = "hangtola-assets"

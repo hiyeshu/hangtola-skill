@@ -1,0 +1,32 @@
+</head>
+<body>
+
+<h1 id="board-title" contenteditable="true" spellcheck="false"></h1>
+
+<main id="board"></main>
+<p id="board-footnote" contenteditable="true" spellcheck="false"></p>
+
+<section id="pool-section">
+  <h2>待定</h2>
+  <div id="pool-wrap"><div class="tier-items" data-tier="pool"></div></div>
+</section>
+
+<div class="hint" aria-label="使用说明">
+  <p>点击、拖动卡片即可排序。</p>
+  <p>图片支持一次多选、拖入或直接粘贴。记录自动保存在当前设备</p>
+</div>
+
+<nav id="dock">
+  <button data-act="text">＋ 文字</button>
+  <button data-act="image">＋ 图片</button>
+  <button data-act="export" class="primary">导出图片</button>
+  <button data-act="theme" id="theme-btn" aria-label="切换深浅色">☾</button>
+  <button data-act="more" aria-label="更多">⋯</button>
+</nav>
+
+<input type="file" id="file-input" class="hidden-input" accept="image/*" multiple>
+<input type="file" id="json-input" class="hidden-input" accept="application/json,.json">
+
+<!-- hangtola 技能在此注入榜单数据（JSON），保持独立运行时为空对象 -->
+<script id="hangtola-data" type="application/json">{}</script>
+

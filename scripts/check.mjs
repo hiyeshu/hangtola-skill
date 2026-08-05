@@ -124,7 +124,9 @@ function run(label, command, args) {
   assert(result.status === 0, `${label} 未通过`);
 }
 run('codegen 新鲜度', 'npx', ['tsx', 'packages/domain/scripts/emit-skill-validator.ts', '--check']);
+run('离线模板零漂移', 'node', ['apps/web/build.mjs', '--check']);
 run('领域类型检查', 'npx', ['tsc', '--build', 'packages/domain']);
+run('Worker 类型检查', 'npx', ['tsc', '--noEmit', '-p', 'workers/hangtola/tsconfig.json']);
 run('领域测试', 'npx', ['vitest', 'run', '--silent']);
 
 console.log(`检查通过：${REQUIRED_FILES.length} 个 Skill 文件、${scripts.length} 段模板脚本，领域门禁全绿，部署外壳与 Skill 隔离。`);

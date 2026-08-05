@@ -13,5 +13,6 @@ import type { SearchEnv } from './models/exa.js';
 export interface Env extends WorkerEnv, VisionEnv, SearchEnv {
   HANGTOLA_AGENT: DurableObjectNamespace<HangtolaAgent>;
   ASSETS: R2Bucket;
+  STATIC: Fetcher;
   GEN_WORKFLOW: Workflow;
 }

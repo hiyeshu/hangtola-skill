@@ -1,0 +1,814 @@
+/* ============================================================
+   常量与状态
+   ============================================================ */
+const TIER_DEFS = [
+  { key: 'hang',  label: '夯',     color: '#fb2018' },
+  { key: 'top',   label: '顶级',   color: '#ffa640' },
+  { key: 'upper', label: '人上人', color: '#fbf600' },
+  { key: 'npc',   label: 'NPC',    color: '#fdf1c7' },
+  { key: 'la',    label: '拉完了', color: '#ffffff' }
+];
+const RATIOS = { '3:4': [1200, 1600], '4:3': [1600, 1200], '16:9': [1920, 1080] };
+/* 导出配色随当前模式（底为透明，只管网格与文字）：浅色 = 参考图原味，深色 = 经典暗版 */
+const THEMES = {
+  light: { row: '#d2d4d8', line: '#111213', ink: '#111213', chipBg: '#1d1d1f', chipInk: '#ffffff', dim: '#6e7480', capBg: '#ffffff', ring: 'rgba(17,18,19,0.28)' },
+  dark:  { row: '#3a3a3e', line: '#0b0b0c', ink: '#f5f5f7', chipBg: '#f5f5f7', chipInk: '#111213', dim: '#98989f', capBg: '#1c1c1e', ring: 'rgba(0,0,0,0.5)' }
+};
+/* 文字卡可选底色：iOS 系统色，与 Apple 外壳同源；null = 默认墨块（随主题反色） */
+const CHIP_COLORS = ['#ffffff', '#ff453a', '#ff9f0a', '#ffd60a', '#30d158', '#0a84ff', '#bf5af2'];
+const items = new Map();          // id -> { text, image, note, color }
+let boardId = 'default';
+let nextId = 1;
+/* 底部声明：默认为空（删比加烦），想要的人在 ⋯ 菜单一键填入；字面量不依赖 DOM */
+const DEFAULT_FOOTNOTE = '以上内容纯属个人主观体验，不代表任何客观评价，仅供参考';
+
+const $ = (sel) => document.querySelector(sel);
+const board = $('#board');
+
+/* ============================================================
+   构建榜单骨架（档位名可编辑）
+   ============================================================ */
+for (const t of TIER_DEFS) {
+  const row = document.createElement('div');
+  row.className = 'tier';
+  row.innerHTML = `<div class="tier-label" contenteditable="true" spellcheck="false"
+                        style="background:${t.color}" data-key="${t.key}">${t.label}</div>
+                   <div class="tier-items" data-tier="${t.key}"></div>`;
+  board.appendChild(row);
+}
+
+/* ============================================================
+   大图榜单持久化：IndexedDB 承担主存储，localStorage 只做旧数据回退
+   ============================================================ */
+const DB_NAME = 'hangtola';
+const DB_STORE = 'boards';
+
+function openBoardDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('IndexedDB 不可用')); return; }
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DB_STORE)) {
+        request.result.createObjectStore(DB_STORE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadSavedBoard(id) {
+  try {
+    const db = await openBoardDB();
+    const saved = await new Promise((resolve, reject) => {
+      const request = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(id);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    if (saved) return saved;
+  } catch (error) {
+    console.warn('IndexedDB 读取失败，回退旧存储', error);
+  }
+  try { return JSON.parse(localStorage.getItem('hangtola:' + id) || 'null'); }
+  catch (error) { return null; }
+}
+
+async function persistBoard(data) {
+  try {
+    const db = await openBoardDB();
+    await new Promise((resolve, reject) => {
+      const request = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).put(data);
+      request.onsuccess = resolve;
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+  } catch (error) {
+    try { localStorage.setItem('hangtola:' + data.id, JSON.stringify(data)); }
+    catch (fallbackError) { console.warn('自动保存失败，请导出 JSON 保留数据', fallbackError); }
+  }
+}
+
+async function removeSavedBoard(id) {
+  try {
+    const db = await openBoardDB();
+    await new Promise((resolve, reject) => {
+      const request = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).delete(id);
+      request.onsuccess = resolve;
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+  } catch (error) {}
+  localStorage.removeItem('hangtola:' + id);
+}
+
+/* ============================================================
+   数据载入：内嵌 JSON vs 本地自动保存，savedAt 新者胜
+   ============================================================ */
+async function loadInitialData() {
+  let embedded = {};
+  try { embedded = JSON.parse($('#hangtola-data').textContent || '{}'); } catch (e) {}
+  boardId = embedded.id || 'default';
+  const saved = await loadSavedBoard(boardId);
+  const eTime = Date.parse(embedded.savedAt || 0) || 0;
+  const sTime = saved ? (Date.parse(saved.savedAt || 0) || 1) : -1;
+  applyData((sTime >= eTime && saved) ? saved : embedded);
+}
+
+function applyData(data) {
+  if (!data || typeof data !== 'object') return;
+  items.clear();
+  window.__hangtolaDims = Array.isArray(data.dimensions) ? data.dimensions : [];
+  document.querySelectorAll('.tier-items').forEach(el => el.innerHTML = '');
+  if (typeof data.title === 'string') $('#board-title').textContent = data.title;
+  /* 字段缺失 = 用默认声明；显式空串 = 用户主动清掉，尊重之 */
+  $('#board-footnote').textContent =
+    typeof data.footnote === 'string' ? data.footnote.trim() : '';
+  const buckets = {};
+  (data.tiers || []).forEach(t => {
+    buckets[t.key] = t.items || [];
+    const labelEl = document.querySelector(`.tier-label[data-key="${t.key}"]`);
+    if (labelEl && t.label) labelEl.textContent = t.label;
+  });
+  buckets.pool = data.pool || [];
+  for (const [tierKey, list] of Object.entries(buckets)) {
+    const container = document.querySelector(`.tier-items[data-tier="${tierKey}"]`);
+    if (!container) continue;
+    for (const it of list) {
+      const id = 'i' + (nextId++);
+      items.set(id, {
+        text: it.text || '', image: it.image || null,
+        note: it.note || '', color: it.image ? null : (it.color || null)
+      });
+      container.appendChild(buildCard(id));
+    }
+  }
+}
+
+/* ============================================================
+   序列化与自动保存
+   ============================================================ */
+function serialize() {
+  const readContainer = (key) =>
+    [...document.querySelectorAll(`.tier-items[data-tier="${key}"] .card-item`)]
+      .map(el => {
+        const it = items.get(el.dataset.id);
+        return { text: it.text, image: it.image, note: it.note, color: it.color };
+      });
+  return {
+    id: boardId,
+    title: $('#board-title').textContent.trim(),
+    footnote: $('#board-footnote').textContent.trim(),
+    savedAt: new Date().toISOString(),
+    dimensions: window.__hangtolaDims || [],
+    tiers: TIER_DEFS.map(t => ({
+      key: t.key,
+      label: document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent.trim() || t.label,
+      color: t.color,
+      items: readContainer(t.key)
+    })),
+    pool: readContainer('pool')
+  };
+}
+
+let saveTimer = null;
+function autosave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => persistBoard(serialize()), 400);
+}
+$('#board-title').addEventListener('input', autosave);
+$('#board-footnote').addEventListener('input', autosave);
+/* contenteditable 清空后常残留 <br>，:empty 便失效——失焦时抹平，让空的真正消失 */
+for (const sel of ['#board-title', '#board-footnote']) {
+  $(sel).addEventListener('blur', (e) => {
+    if (!e.target.textContent.trim()) { e.target.textContent = ''; autosave(); }
+  });
+}
+document.body.addEventListener('input', (e) => { if (e.target.classList.contains('tier-label')) autosave(); });
+
+/* ============================================================
+   卡片：创建 / 刷新 / 新增
+   ============================================================ */
+/* 相对亮度：决定彩色底上用黑字还是白字 */
+function lum(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+}
+/* 字号随字数自适应：字少则大，字多则小 */
+function fsClass(t) { const n = t.length; return n <= 2 ? 'fs-xl' : n <= 4 ? 'fs-l' : n <= 8 ? 'fs-m' : 'fs-s'; }
+
+function buildCard(id) {
+  const it = items.get(id);
+  const el = document.createElement('div');
+  el.dataset.id = id;
+  el.title = it.text;
+  if (it.image) {
+    el.className = 'card-item is-img';
+    el.innerHTML = `<div class="thumb"><img src="${it.image}" alt=""></div>` +
+                   (it.text ? `<div class="name"></div>` : '');
+    if (it.text) el.querySelector('.name').textContent = it.text;
+  } else {
+    el.className = 'card-item is-txt';
+    el.innerHTML = `<div class="txt ${fsClass(it.text)}"></div>`;
+    const tx = el.querySelector('.txt');
+    tx.textContent = it.text;
+    if (it.color) {
+      el.style.background = it.color;
+      tx.style.color = lum(it.color) > 0.62 ? '#111213' : '#fff';
+    }
+  }
+  return el;
+}
+
+/* 文件名"像人话"才带入（含中文或短英文词），流水号一律不要 */
+function guessName(filename) {
+  const base = filename.replace(/\.[^.]+$/, '').trim();
+  if (!base || base.length > 14) return '';
+  if (/^(IMG|DSC|DCIM|Screenshot|Snipaste|WeChat|Pasted|image|photo|截屏|截图|微信图片)/i.test(base)) return '';
+  const meat = base.replace(/[\d_\-\s.()]/g, '');
+  if (meat.length < 2) return '';
+  return base;
+}
+function refreshCard(el) { const n = buildCard(el.dataset.id); el.replaceWith(n); return n; }
+function addItem(text, image) {
+  const id = 'i' + (nextId++);
+  items.set(id, { text: text || '', image: image || null, note: '', color: null });
+  document.querySelector('.tier-items[data-tier="pool"]').appendChild(buildCard(id));
+  autosave();
+}
+
+/* ============================================================
+   指针拖拽（鼠标 + 触屏统一）：移动即拖，原地轻点开操作单
+   ============================================================ */
+let drag = null;   // { id, el, ghost, started, sx, sy, hold }
+document.body.addEventListener('pointerdown', (e) => {
+  const card = e.target.closest('.card-item');
+  if (!card || e.button > 0) return;
+  drag = { id: card.dataset.id, el: card, ghost: null, started: false, sx: e.clientX, sy: e.clientY };
+  /* 长按（450ms 未拖动）＝ 轻点的同义词：打开同一张操作单 */
+  drag.hold = setTimeout(() => {
+    if (!drag || drag.started) return;
+    const el = drag.el; drag = null;
+    if (navigator.vibrate) navigator.vibrate(10);
+    openCardSheet(el);
+  }, 450);
+});
+document.body.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) return;
+    clearTimeout(drag.hold);
+    drag.started = true;
+    const g = drag.el.cloneNode(true);
+    g.id = 'drag-ghost';
+    const r = drag.el.getBoundingClientRect();
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    document.body.appendChild(g);
+    drag.ghost = g;
+    drag.el.classList.add('drag-source');
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX + 'px';
+  drag.ghost.style.top = e.clientY + 'px';
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tier-items');
+  if (zone) zone.classList.add('drag-over');
+});
+function endDrag(e, cancelled) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  clearTimeout(d.hold);
+  if (!d.started) { if (!cancelled) openCardSheet(d.el); return; }
+  d.ghost?.remove();
+  d.el.classList.remove('drag-source');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  if (cancelled) return;
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const zone = under?.closest('.tier-items');
+  if (!zone) return;
+  const targetCard = under?.closest('.card-item');
+  if (targetCard && targetCard !== d.el) zone.insertBefore(d.el, targetCard);
+  else zone.appendChild(d.el);
+  autosave();
+}
+document.body.addEventListener('pointerup', (e) => endDrag(e, false));
+document.body.addEventListener('pointercancel', (e) => endDrag(e, true));
+/* 右键（桌面端）＝ 轻点的同义词：打开同一张操作单 */
+document.body.addEventListener('contextmenu', (e) => {
+  const card = e.target.closest('.card-item');
+  if (!card) return;
+  e.preventDefault();
+  drag = null;
+  openCardSheet(card);
+});
+
+/* ============================================================
+   弹层系统：touch bar 的延伸面板
+   ============================================================ */
+function closePanel() { $('#mask')?.remove(); $('#panel')?.remove(); }
+function openPanel(html) {
+  closePanel();
+  const mask = document.createElement('div'); mask.id = 'mask';
+  mask.addEventListener('pointerdown', closePanel);
+  const panel = document.createElement('div'); panel.id = 'panel';
+  panel.innerHTML = html;
+  document.body.append(mask, panel);
+  return panel;
+}
+
+/* ---- ＋ 文字 ---- */
+function openTextPanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">添加文字</h3>
+    <input class="panel-control" type="text" id="p-text" aria-label="名称"
+           placeholder="输入名称，多个用逗号隔开" autocomplete="off">
+    <div class="panel-actions">
+      <button class="p-btn" id="p-text-cancel">取消</button>
+      <button class="p-btn dark" id="p-text-ok">添加</button>
+    </div>`);
+  const input = p.querySelector('#p-text');
+  input.focus();
+  const commit = () => {
+    const raw = input.value.trim();
+    if (!raw) return;
+    raw.split(/[,，、\n]+/).map(s => s.trim()).filter(Boolean).forEach(t => addItem(t, null));
+    closePanel();
+  };
+  p.querySelector('#p-text-cancel').addEventListener('click', closePanel);
+  p.querySelector('#p-text-ok').addEventListener('click', commit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
+}
+
+/* ---- 导出图片：选比例即出图 ---- */
+function openExportPanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">导出图片</h3>
+    <div class="ratio-grid">
+      <button class="p-btn" data-ratio="3:4">3:4<small>竖图</small></button>
+      <button class="p-btn" data-ratio="4:3">4:3<small>横图</small></button>
+      <button class="p-btn" data-ratio="16:9">16:9<small>宽屏</small></button>
+    </div>`);
+  p.querySelectorAll('[data-ratio]').forEach(btn =>
+    btn.addEventListener('click', () => { closePanel(); exportPNG(btn.dataset.ratio); }));
+}
+
+/* ---- 底部声明：默认文案只填入，用户确认后再保存 ---- */
+function openFootnotePanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">底部声明</h3>
+    <p class="panel-subtitle">不填则不显示</p>
+    <textarea class="panel-control" id="p-ft" aria-label="底部声明"
+              placeholder="输入声明" autocomplete="off"></textarea>
+    <button class="p-btn tertiary" id="p-ft-def">使用默认文案</button>
+    <div class="panel-actions">
+      <button class="p-btn" id="p-ft-cancel">取消</button>
+      <button class="p-btn dark" id="p-ft-ok">保存</button>
+    </div>`);
+  const input = p.querySelector('#p-ft');
+  input.value = $('#board-footnote').textContent.trim();
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  const save = () => {
+    $('#board-footnote').textContent = input.value.replace(/\s+/g, ' ').trim();
+    autosave();
+    closePanel();
+  };
+  p.querySelector('#p-ft-def').addEventListener('click', () => {
+    input.value = DEFAULT_FOOTNOTE;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+  p.querySelector('#p-ft-cancel').addEventListener('click', closePanel);
+  p.querySelector('#p-ft-ok').addEventListener('click', save);
+}
+
+/* ---- ⋯ 更多 ---- */
+function openMorePanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">更多</h3>
+    <button class="p-btn wide" data-m="save">导出榜单数据</button>
+    <button class="p-btn wide" data-m="load">导入榜单数据</button>
+    <button class="p-btn wide" data-m="foot">底部声明</button>
+    <button class="p-btn wide danger" data-m="reset">重置为初始数据</button>`);
+  p.addEventListener('click', async (e) => {
+    const m = e.target.dataset.m;
+    if (!m) return;
+    if (m === 'foot') { openFootnotePanel(); return; }
+    closePanel();
+    if (m === 'save') {
+      const data = serialize();
+      download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+               (data.title || 'hangtola') + '.json');
+    }
+    if (m === 'load') $('#json-input').click();
+    if (m === 'reset' && confirm('清除本地编辑，恢复为文件内嵌的初始数据？')) {
+      await removeSavedBoard(boardId);
+      /* 重放内嵌数据而非刷新页面：保留主题等状态，体验不断片。
+         applyData 对缺失字段是"保持不动"，故先归位标题与档位名默认值 */
+      $('#board-title').textContent = '';
+      TIER_DEFS.forEach(t => {
+        document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent = t.label;
+      });
+      let embedded = {};
+      try { embedded = JSON.parse($('#hangtola-data').textContent || '{}'); } catch (err) {}
+      applyData(embedded);
+    }
+  });
+}
+
+/* ---- 卡片操作单：定档 / 改名 / 删除（轻点、长按、右键同源） ---- */
+function openCardSheet(cardEl) {
+  const id = cardEl.dataset.id;
+  const it = items.get(id);
+  if (!it) return;
+  const currentTier = cardEl.closest('.tier-items')?.dataset.tier;
+  const chips = TIER_DEFS.map(t => {
+    const label = document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent.trim() || t.label;
+    return `<button class="chip${t.key === currentTier ? ' now' : ''}" style="background:${t.color}" data-t="${t.key}">${escapeHtml(label)}</button>`;
+  }).join('') + `<button class="chip pool-chip${currentTier === 'pool' ? ' now' : ''}" data-t="pool">备选</button>`;
+  const dots = it.image ? '' : `<div class="color-dots">
+    <button class="dot auto${!it.color ? ' now' : ''}" data-col="" title="默认"></button>
+    ${CHIP_COLORS.map(c => `<button class="dot${it.color === c ? ' now' : ''}" style="background:${c}" data-col="${c}"></button>`).join('')}
+  </div>`;
+  const p = openPanel(`
+    <h3>${it.text ? escapeHtml(it.text) : '未命名条目'}</h3>
+    <div class="tier-chips">${chips}</div>
+    ${dots}
+    <button class="p-btn wide" data-c="rename">改名</button>
+    <button class="p-btn wide danger" data-c="del">删除</button>`);
+  p.addEventListener('click', (e) => {
+    if (e.target.dataset.col !== undefined) {
+      it.color = e.target.dataset.col || null;
+      autosave();
+      openCardSheet(refreshCard(cardEl));
+      return;
+    }
+    const t = e.target.dataset.t;
+    if (t && t !== currentTier) {
+      document.querySelector(`.tier-items[data-tier="${t}"]`).appendChild(cardEl);
+      autosave(); closePanel();
+      return;
+    }
+    const c = e.target.dataset.c;
+    if (!c) return;
+    if (c === 'del') { items.delete(id); cardEl.remove(); autosave(); closePanel(); }
+    if (c === 'rename') {
+      const q = openPanel(`
+        <h3 class="panel-title">修改名称</h3>
+        <input class="panel-control" type="text" id="p-rn" aria-label="名称"
+               placeholder="输入名称" autocomplete="off">
+        <div class="panel-actions">
+          <button class="p-btn" id="p-rn-cancel">取消</button>
+          <button class="p-btn dark" id="p-rn-ok">保存</button>
+        </div>`);
+      const inp = q.querySelector('#p-rn'); inp.value = it.text; inp.focus(); inp.select();
+      const ok = () => { it.text = inp.value.trim(); refreshCard(cardEl); autosave(); closePanel(); };
+      q.querySelector('#p-rn-cancel').addEventListener('click', closePanel);
+      q.querySelector('#p-rn-ok').addEventListener('click', ok);
+      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ok(); });
+    }
+  });
+}
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ---- 深浅色模式 ---- */
+let theme = localStorage.getItem('hangtola-theme') ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+function applyTheme(t) {
+  theme = t;
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('hangtola-theme', t);
+  $('#theme-btn').textContent = t === 'dark' ? '☀' : '☾';
+}
+
+/* ---- dock 分发 ---- */
+$('#dock').addEventListener('click', (e) => {
+  const act = e.target.closest('button')?.dataset.act;
+  if (act === 'text') openTextPanel();
+  if (act === 'image') $('#file-input').click();
+  if (act === 'export') openExportPanel();
+  if (act === 'theme') applyTheme(theme === 'dark' ? 'light' : 'dark');
+  if (act === 'more') openMorePanel();
+});
+
+/* ============================================================
+   图片入口：多选 / 拖入 / 粘贴；Promise.all 保证异步压缩后仍按输入顺序加入
+   ============================================================ */
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error(`无法解析图片：${file.name || '粘贴图片'}`));
+      img.onload = () => {
+        /* 保留原始比例，只压尺寸（长边 ≤512）；裁切交给显示层，数据不失真 */
+        const MAX = 512, cv = document.createElement('canvas');
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        cv.width = Math.max(1, Math.round(img.width * scale));
+        cv.height = Math.max(1, Math.round(img.height * scale));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        resolve(cv.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addImageFiles(fileList) {
+  const files = [...fileList].filter(file => file?.type?.startsWith('image/'));
+  if (!files.length) return;
+  try {
+    const prepared = await Promise.all(files.map(async file => ({
+      text: guessName(file.name || ''),
+      image: await readImageFile(file)
+    })));
+    prepared.forEach(item => addItem(item.text, item.image));
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+$('#file-input').addEventListener('change', async (e) => {
+  await addImageFiles(e.target.files);
+  e.target.value = '';
+});
+document.addEventListener('paste', async (e) => {
+  const files = [...e.clipboardData.items]
+    .filter(item => item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter(Boolean);
+  if (!files.length) return;
+  e.preventDefault();
+  await addImageFiles(files);
+});
+document.addEventListener('dragover', (e) => {
+  if (![...e.dataTransfer.types].includes('Files')) return;
+  e.preventDefault();
+  document.body.classList.add('file-over');
+});
+document.addEventListener('dragleave', (e) => {
+  if (!e.relatedTarget) document.body.classList.remove('file-over');
+});
+document.addEventListener('drop', async (e) => {
+  document.body.classList.remove('file-over');
+  const files = [...e.dataTransfer.files].filter(file => file.type.startsWith('image/'));
+  if (!files.length) return;
+  e.preventDefault();
+  await addImageFiles(files);
+});
+
+/* ============================================================
+   JSON 导入
+   ============================================================ */
+function download(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+$('#json-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  file.text().then(txt => {
+    try { applyData(JSON.parse(txt)); autosave(); }
+    catch (err) { alert('JSON 解析失败：' + err.message); }
+  });
+  e.target.value = '';
+});
+
+/* ============================================================
+   PNG 导出：干净所见即所得——淡蓝底 + 黑框网格，无水印
+   ============================================================ */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, maxWidth, maxLines) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    if (ctx.measureText(line + ch).width > maxWidth && line) {
+      lines.push(line); line = ch;
+      if (lines.length === maxLines) break;
+    } else line += ch;
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  else if (line && lines.length === maxLines) lines[maxLines - 1] = lines[maxLines - 1].slice(0, -1) + '…';
+  return lines;
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function fitTierLabel(ctx, text, maxWidth, rowHeight, frameScale, fontFamily) {
+  let fontSize = clampNumber(rowHeight * 0.18, 32 * frameScale, 52 * frameScale);
+  const minFontSize = 20 * frameScale;
+  while (fontSize > minFontSize) {
+    ctx.font = `800 ${fontSize}px ${fontFamily}`;
+    const lines = wrapText(ctx, text, maxWidth, 2);
+    const lineHeight = fontSize * 1.18;
+    const widestLine = Math.max(0, ...lines.map(line => ctx.measureText(line).width));
+    if (widestLine <= maxWidth && lines.length * lineHeight <= rowHeight - 24 * frameScale) {
+      return { fontSize, lines, lineHeight };
+    }
+    fontSize -= 0.5;
+  }
+  ctx.font = `800 ${minFontSize}px ${fontFamily}`;
+  return {
+    fontSize: minFontSize,
+    lines: wrapText(ctx, text, maxWidth, 2),
+    lineHeight: minFontSize * 1.18,
+  };
+}
+
+async function exportPNG(ratio) {
+  const data = serialize();
+  const T = THEMES[theme];
+  const [W, H] = RATIOS[ratio];
+  const u = W / 1600;                                   // 尺寸归一化单位
+  const frameScale = Math.min(W, H) / 1200;             // 画框与说明文字按短边保持光学密度
+  const FONT = '"PingFang SC","Microsoft YaHei",sans-serif';
+
+  /* 预载图片 */
+  const imgCache = new Map();
+  await Promise.all(data.tiers.flatMap(t => t.items).filter(it => it.image).map(it => new Promise(res => {
+    const im = new Image();
+    im.onload = () => { imgCache.set(it.image, im); res(); };
+    im.onerror = res;
+    im.src = it.image;
+  })));
+
+  /* 布局：统一槽位（方图 S + 名字行 capH），上下铺满、留白不算比例。
+     卡片参与铺满：槽位随缩放系数 k 变大/变小，二分求「卡片自然撑起的网格高度」
+     恰好逼近画幅可用高度的 k——卡片先长到刚好铺满，残差再均摊进行高；
+     k 有上下限（防空榜卡片巨大化 / 爆量时过碎），内容仍超高才退回整体缩小。 */
+  const pad = 56 * frameScale, bw = 4 * frameScale;     // 外边距 / 边框宽
+  const hasTitle = !!data.title;
+  const titleH = hasTitle ? 96 * frameScale : 0;
+  const footH = data.footnote ? 52 * frameScale : 0;    // 声明条：贴着网格底边的实心黑条
+  const gridW = W - pad * 2;
+  const labelMeasure = document.createElement('canvas').getContext('2d');
+  labelMeasure.font = `800 ${52 * frameScale}px ${FONT}`;
+  const measuredLabelW = Math.max(...data.tiers.map(t => labelMeasure.measureText(t.label).width)) + 48 * frameScale;
+  const labelW = Math.round(clampNumber(measuredLabelW, gridW * 0.15, gridW * 0.22));
+  const availH = H - pad * 2 - titleH - footH;
+  const layout = (kk) => {
+    const gap = 10 * u * kk, S = 150 * u * kk, capH = 32 * u * kk, slotH = S + capH;
+    const minRowH = slotH + gap * 2;
+    const perRow = Math.max(1, Math.floor((gridW - labelW - gap * 2) / (S + gap)));
+    const rowHeights = data.tiers.map(t => {
+      const rows = Math.max(1, Math.ceil(t.items.length / perRow));
+      return Math.max(minRowH, rows * (slotH + gap) + gap);
+    });
+    return { gap, S, capH, slotH, perRow, rowHeights, gridH: rowHeights.reduce((a, b) => a + b, 0) };
+  };
+  let lo = 0.55, hi = 2.2, k = 1;
+  for (let i = 0; i < 24; i++) {
+    k = (lo + hi) / 2;
+    if (layout(k).gridH > availH) hi = k; else lo = k;
+  }
+  k = lo;
+  const { gap, S, capH, slotH, perRow, rowHeights } = layout(k);
+  let gridH = rowHeights.reduce((a, b) => a + b, 0);
+  if (gridH < availH) {   // 二分残差与 k 触顶的富余：均摊进行高
+    const extra = (availH - gridH) / rowHeights.length;
+    for (let i = 0; i < rowHeights.length; i++) rowHeights[i] += extra;
+    gridH = availH;
+  }
+  const totalH = pad + titleH + gridH + footH + pad;
+  const scale = Math.min(1, H / totalH);
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  /* 背景不填充：PNG 透明底，贴到任何地方都干净 */
+  ctx.save();
+  ctx.translate((W - W * scale) / 2, (H - totalH * scale) / 2);
+  ctx.scale(scale, scale);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  /* 标题（留空则纯网格） */
+  if (hasTitle) {
+    ctx.fillStyle = T.ink;
+    ctx.font = `800 ${52 * frameScale}px ${FONT}`;
+    ctx.fillText(data.title, W / 2, pad + titleH / 2 - 12 * frameScale);
+  }
+
+  /* 网格主体 */
+  const gx = pad, gy = pad + titleH;
+  ctx.fillStyle = T.row;
+  ctx.fillRect(gx, gy, gridW, gridH);
+
+  let y = gy;
+  data.tiers.forEach((t, i) => {
+    const rh = rowHeights[i];
+    /* 档位色块 + 名称（黑字，色块本身够亮，两种模式通用） */
+    ctx.fillStyle = t.color;
+    ctx.fillRect(gx, y, labelW, rh);
+    ctx.fillStyle = '#111213';
+    const labelLayout = fitTierLabel(ctx, t.label, labelW - 24 * frameScale, rh, frameScale, FONT);
+    const ly0 = y + rh / 2 - (labelLayout.lines.length - 1) * labelLayout.lineHeight / 2;
+    labelLayout.lines.forEach((line, lineIndex) => {
+      ctx.fillText(line, gx + labelW / 2, ly0 + lineIndex * labelLayout.lineHeight);
+    });
+
+    /* 条目：统一竖版框。无名图＝铺满整框；有名图＝上图下名字条；文字＝色块撑满整框 */
+    t.items.forEach((it, j) => {
+      const col = j % perRow, row = Math.floor(j / perRow);
+      const x = gx + labelW + gap + col * (S + gap);
+      const iy = y + gap + row * (slotH + gap);
+      ctx.save();
+      roundRect(ctx, x, iy, S, slotH, 4 * u * k); ctx.clip();
+      if (it.image && imgCache.has(it.image)) {
+        const im = imgCache.get(it.image);
+        const areaH = it.text ? S : slotH;
+        const sc = Math.max(S / im.width, areaH / im.height);
+        ctx.drawImage(im, x + (S - im.width * sc) / 2, iy + (areaH - im.height * sc) / 2, im.width * sc, im.height * sc);
+        if (it.text) {
+          ctx.fillStyle = T.capBg;
+          ctx.fillRect(x, iy + S, S, capH);
+          ctx.fillStyle = T.ink;
+          ctx.font = `600 ${19 * u * k}px ${FONT}`;
+          ctx.fillText(wrapText(ctx, it.text, S - 10 * u * k, 1)[0] || '', x + S / 2, iy + S + capH / 2 + 1 * u);
+        }
+      } else {
+        const bg = it.color || T.chipBg;
+        ctx.fillStyle = bg;
+        ctx.fillRect(x, iy, S, slotH);
+        ctx.fillStyle = it.color ? (lum(it.color) > 0.62 ? '#111213' : '#ffffff') : T.chipInk;
+        const n = (it.text || '').length;
+        const cfs = (n <= 2 ? 36 : n <= 4 ? 29 : n <= 8 ? 23 : 19) * u * k;
+        ctx.font = `800 ${cfs}px ${FONT}`;
+        const lines = wrapText(ctx, it.text, S - 16 * u * k, 4);
+        const tlh = cfs * 1.25, ty0 = iy + slotH / 2 - (lines.length - 1) * tlh / 2;
+        lines.forEach((ln, k) => ctx.fillText(ln, x + S / 2, ty0 + k * tlh));
+      }
+      ctx.restore();
+      /* 统一细边框，贴近编辑器观感 */
+      ctx.strokeStyle = T.ring;
+      ctx.lineWidth = 1.2 * u;
+      roundRect(ctx, x, iy, S, slotH, 4 * u * k); ctx.stroke();
+    });
+    y += rh;
+  });
+
+  /* 网格线：外框 + 行分隔 + 标签列分隔 */
+  ctx.strokeStyle = T.line;
+  ctx.lineWidth = bw;
+  ctx.strokeRect(gx, gy, gridW, gridH);
+  ctx.beginPath();
+  let ly = gy;
+  for (let i = 0; i < data.tiers.length - 1; i++) {
+    ly += rowHeights[i];
+    ctx.moveTo(gx, ly); ctx.lineTo(gx + gridW, ly);
+  }
+  ctx.moveTo(gx + labelW, gy); ctx.lineTo(gx + labelW, gy + gridH);
+  ctx.stroke();
+
+  /* 底部声明条：黑底白字，与外框咬合成表格的最后一行 */
+  if (data.footnote) {
+    const fy = gy + gridH;
+    ctx.fillStyle = T.line;
+    ctx.fillRect(gx - bw / 2, fy - bw / 2, gridW + bw, footH + bw / 2);
+    let ffs = 22 * frameScale;
+    ctx.font = `500 ${ffs}px ${FONT}`;
+    const maxW = gridW - 40 * frameScale, tw = ctx.measureText(data.footnote).width;
+    if (tw > maxW) ctx.font = `500 ${ffs * maxW / tw}px ${FONT}`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(data.footnote, gx + gridW / 2, fy + footH / 2 + 1 * frameScale);
+  }
+
+  ctx.restore();
+  cv.toBlob(b => download(b, `${data.title || 'hangtola'}-${ratio.replace(':', 'x')}.png`), 'image/png');
+}
+
+/* ============================================================
+   软键盘监听：visualViewport 收缩量即键盘高度，写入 --kb，
+   面板 bottom 用 max() 自动上浮，输入框不被键盘盖住
+   ============================================================ */
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const updateKb = () => {
+    const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  };
+  vv.addEventListener('resize', updateKb);
+  vv.addEventListener('scroll', updateKb);
+}
+
+/* ============================================================
+   启动
+   ============================================================ */
+applyTheme(theme);
+loadInitialData();

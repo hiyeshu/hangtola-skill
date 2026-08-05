@@ -4,14 +4,15 @@ Agent Skills 开放规范 + 原生 HTML/CSS/JavaScript + TypeScript workspaces +
 <directory>
 skills/ - skills.sh 可发现的 Skill 集合；当前仅含 hangtola
 packages/ - TypeScript workspace 包；domain 为四端共享领域真相（1 子目录: domain）
-workers/ - Cloudflare Workers；hangtola 为 Agents SDK 运行时（DO + HTTP，见其 L2 地图）
+workers/ - Cloudflare Workers；hangtola 为 Agents SDK 运行时（DO + HTTP + 托管站点，见其 L2 地图）
+apps/ - 前端源真相；web 含离线编辑器五部件与托管站点模块（见其 L2 地图）
 scripts/ - 仓库级检查与站点组合工具，不进入 Skill 运行时工作流
 site/ - npm run build 生成的部署产物，含站点专属外壳，永不手改且不入 Git
 </directory>
 
 <config>
 skills/hangtola/SKILL.md - Skill 入口：多模态输入归一化、维度、调研、定档、呈现参数、生成与交付
-skills/hangtola/assets/template.html - Skill 生成 HTML 的干净编辑器模板真相源，不含部署站点推广控件
+skills/hangtola/assets/template.html - 离线单文件编辑器（构建产物：源在 apps/web/src/template，build.mjs 重组，门禁验零漂移）
 skills/hangtola/package.json - 将公开 Skill 内 `.js` 显式限定为 ESM，隔离宿主或祖先目录的 Node 模块模式
 skills/hangtola/scripts/render-board.js - RedSkill 兼容的渲染 CLI，经 board-validate.gen.js 校验、嵌入本地图片并安全注入模板
 skills/hangtola/scripts/board-validate.gen.js - packages/domain 代码生成的零依赖契约镜像，禁手改，npm run codegen 再生
@@ -38,6 +39,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - P4a 落地托管站点：模板降格为构建产物（五部件切分逐字节重组+零漂移门禁）；首页统一输入→保序上传→生成进度→跳转；榜单页围观轮询/编辑者 ws 实时+聊天改榜+摘要撤销+离线版导出；ws 鉴权迁入 connection state 修复休眠丢态。
 2026-08-06 - P3 落地图片与调研管线：R2 资产链（DO 一次性令牌/Worker 中转/读透）、Seed 识图与 Exa 调研边界（降级不臆造）、可恢复生成 Workflow（每图一步/批次证据/幂等 commit）、enforceGrounding 代码层无捏造；冒烟 25 项全绿 + DO 持久化跨重启验证。
 2026-08-06 - P2 落地 HangtolaAgent DO：每榜一实例、#commit 唯一写入路径、不可变 revision 链与 revert-as-new-revision、ws 协议、DeepSeek 结构化 NL→Patch（修复一次/失败零 revision）、MOCK 桩验收 14 项全绿 + 真模型生成/改榜双实测贯通。
 2026-08-06 - P1 落地共享领域模块：workspaces + packages/domain（V2 schema、迁移三桥、patch 应用器）、代码生成契约镜像接管 render-board 校验（金样零 diff）、check.mjs 焊入 codegen/类型/测试门禁。

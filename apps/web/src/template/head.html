@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!--
+/**
+ * [INPUT]: 依赖 #hangtola-data 内嵌 JSON（由 render-board.js 注入），依赖浏览器原生 Pointer Events / Canvas / FileReader / IndexedDB
+ * [OUTPUT]: 对外提供 夯到拉排行榜 独立编辑器：榜单本体为经典黑框浅色表格（原汁原味，导出即所见），
+ *           外壳遵循 Apple 设计系统（#f5f5f7 画布 / #0066cc 主色 / 毛玻璃胶囊 touch bar / 18px 圆角面板），
+ *           指针拖拽排序定档（鼠标+触屏统一）、轻点卡片改名、批量图片上传/拖入/粘贴、JSON 导入导出、
+ *           干净无水印透明 PNG 导出（3:4 / 4:3 / 16:9 画幅即比例：卡片槽位参与铺满，档位文字随行高保持光学比例）、
+ *           软键盘上浮面板（visualViewport → --kb）、费曼文案表单、声明条默认文案填入后确认保存、重置重放不刷新
+ * [POS]: hangtola 技能的唯一模板资产，由 scripts/render-board.js 校验并注入数据后交付给用户独立运行
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>夯到拉 Hangtola — 万物皆可排</title>
+<meta name="description" content="夯到拉排行榜：批量上传图片或添加纯文字，写名称、拖拽定档，导出干净透明 PNG。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23fb2018'/><text x='50' y='74' font-size='64' font-weight='700' text-anchor='middle' fill='%23fff' font-family='PingFang SC,Microsoft YaHei,sans-serif'>夯</text></svg>">
