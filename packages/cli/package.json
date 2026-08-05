@@ -1,0 +1,10 @@
+{
+  "name": "@hangtola/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "hangtola": "./bin/hangtola.mjs" },
+  "dependencies": {
+    "@hangtola/domain": "*"
+  }
+}

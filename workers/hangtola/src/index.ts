@@ -11,6 +11,7 @@ import { newBoardId, toLegacyBoard } from '@hangtola/domain';
 import type { Env } from './env.js';
 import { HangtolaAgent } from './agent/hangtola-agent.js';
 import { GenerateBoardWorkflow } from './workflows/generate-board.js';
+import { handleMcp } from './mcp/tools.js';
 
 export { HangtolaAgent, GenerateBoardWorkflow };
 
@@ -176,6 +177,9 @@ app.get('/b/:id', async (c) => {
   const page = await c.env.STATIC.fetch(new URL('/board.html', c.req.url));
   return new Response(page.body, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 });
+
+/* ---- Remote MCP：无状态 streamable-HTTP ---- */
+app.all('/mcp', (c) => handleMcp(c.req.raw, c.env));
 
 app.get('/healthz', (c) => c.json({ ok: true }));
 

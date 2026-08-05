@@ -13,6 +13,7 @@ src/models/deepseek.ts: DeepSeek 边界（draftBoard 纯主题 / synthesizeBoard
 src/models/seed-vision.ts: Seed 2.0 Lite 识图边界（方舟 openai 兼容），observe(dataUrl)→结构化观察；MOCK 按文件名产出、unknown 前缀模拟失败
 src/models/exa.ts: Exa 调研边界；无 key/失败一律 insufficient（降级不臆造）；MOCK 名称含「冷门」触发 insufficient
 src/workflows/generate-board.ts: 可恢复生成管线 parse→vision每图一步→curate纯代码→evidence批次→synthesize→commit；单图失败不倒全局；候选丢失代码补回 pool；enforceGrounding 押回强制名单；commit 幂等防重放
+src/mcp/tools.ts: Remote MCP（无状态 streamable-HTTP JSON-RPC）：七工具全部薄封装 DO RPC，零会话零独立逻辑；无 editRef 只见公开投影
 test/smoke.mjs: P2+P3 验收执行器——25 项行为断言（隐私投影/409/零revision/历史链/403/资产令牌/上传序/强制入pool/读透）
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
