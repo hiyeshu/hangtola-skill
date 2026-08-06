@@ -24,6 +24,8 @@ import {
 import type { Env } from '../env.js';
 import { DDL, type RevisionRow, type AssetRow } from './sql.js';
 import { createModelClient } from '../models/deepseek.js';
+import { createVisionClient } from '../models/vision.js';
+import { createSearchClient } from '../models/exa.js';
 import { draftToV2, type DraftShape } from '@hangtola/domain';
 
 interface Generation {
@@ -379,6 +381,11 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
         connection.send(JSON.stringify({ type: 'chat.done', ...result }));
         return;
       }
+      case 'rankPool': {
+        const result = await this.#rankPool();
+        connection.send(JSON.stringify({ type: 'chat.done', ...result }));
+        return;
+      }
       default:
         connection.send(JSON.stringify({ type: 'error', code: 'unknown-frame', message: String(frame.type) }));
     }
@@ -405,6 +412,74 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
     this.sql`INSERT INTO conversation (id, role, content, revision_id, created_at)
              VALUES (${`msg_${now}_a`}, ${'assistant'}, ${reply}, ${revisionId}, ${Date.now()})`;
     return { reply, revisionId, summary: revisionId ? result.summary : null };
+  }
+
+  /** 增量定档：对备选区条目补识图/补证据，编译成只动这些条目的 move/update patch */
+  async #rankPool(): Promise<{ reply: string; revisionId: string | null; summary: string | null }> {
+    const doc = this.#currentDoc();
+    if (doc.pool.length === 0) {
+      return { reply: '备选区是空的，没什么可排。', revisionId: null, summary: null };
+    }
+    const vision = createVisionClient(this.env);
+    const search = createSearchClient(this.env);
+    const targets: { id: string; text: string; observation: string; evidence: string }[] = [];
+    for (const item of doc.pool) {
+      /* 识图补观察：仅对无内部依据的带图条目（失败降级为空，不臆造） */
+      let observation = item.note || '';
+      if (!observation && item.image?.kind === 'asset') {
+        try {
+          const rows = this.sql`SELECT r2_key, mime FROM assets WHERE id = ${item.image.assetId}` as unknown as
+            { r2_key: string; mime: string }[];
+          const object = rows[0] ? await this.env.ASSETS.get(rows[0].r2_key) : null;
+          if (object) {
+            const bytes = new Uint8Array(await object.arrayBuffer());
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+            }
+            const obs = await vision.observe(`data:${rows[0]!.mime};base64,${btoa(binary)}`, item.text);
+            observation = obs.candidates[0]?.name
+              ? `${obs.candidates[0].name}：${obs.description}`
+              : obs.description;
+          }
+        } catch { /* 识图失败：无观察即无观察 */ }
+      }
+      let evidence = 'insufficient';
+      try {
+        const ev = await search.research(`${doc.title || ''} ${item.text}`.trim());
+        if (ev.status === 'supported') {
+          evidence = ev.sources.map((src) => src.snippet).join(' / ').slice(0, 150);
+        }
+      } catch { /* 证据不足如实标注 */ }
+      targets.push({ id: item.id, text: item.text, observation, evidence });
+    }
+
+    const instruction = `RANK_POOL:${JSON.stringify(targets.map((t) => ({ id: t.id, text: t.text })))}\n`
+      + '请把以下备选区条目定档进五档。只允许对这些 itemId 使用 moveItem 与 updateItem，'
+      + '禁止新增/删除/触碰其他条目。定档纪律照旧：夯是稀缺的，拉完了要有硬伤；'
+      + 'evidence 为 insufficient 的靠常识判断并在 note 注明证据不足。'
+      + '每个条目用 updateItem 补一句 note 定档依据。条目与线索：\n'
+      + JSON.stringify(targets);
+    const result = await createModelClient(this.env).reviseOps(doc, instruction);
+    if (!result.ok) return { reply: result.reply, revisionId: null, summary: null };
+
+    /* 白名单收口：越权 op 一律剔除 */
+    const allowed = new Set(targets.map((t) => t.id));
+    const ops = result.ops.filter((op) =>
+      (op.op === 'moveItem' || op.op === 'updateItem') && allowed.has(op.itemId));
+    if (ops.length === 0) {
+      return { reply: '这次没排成，条目还在备选区，再试一次？', revisionId: null, summary: null };
+    }
+    const summary = result.summary || `把 ${targets.length} 个备选排进榜单`;
+    const outcome = this.#commit({
+      schemaVersion: 'patch.v1', boardId: doc.id, baseRevision: this.#headId(),
+      ops, summary, author: { kind: 'agent' },
+    });
+    if (!outcome.ok) return { reply: '排档时撞上了新版本，请再点一次。', revisionId: null, summary: null };
+    const now = Date.now();
+    this.sql`INSERT INTO conversation (id, role, content, revision_id, created_at)
+             VALUES (${`msg_${now}_a`}, ${'assistant'}, ${summary}, ${outcome.head}, ${now})`;
+    return { reply: summary, revisionId: outcome.head, summary };
   }
 
   #broadcastAuthed(frame: Record<string, unknown>): void {

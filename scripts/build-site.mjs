@@ -100,12 +100,14 @@ const SITE_SCRIPT = `
   button.addEventListener('click', () => {
     const data = serialize();
     const items = [...data.tiers.flatMap((t) => t.items), ...data.pool];
-    if (items.length === 0) { location.href = '/ai'; return; }
     const imageCount = items.filter((it) => it.image).length;
+    const note = items.length === 0
+      ? '还没放条目也行：给个主题，AI 自己找候选、查资料、定档。'
+      : '把当前 ' + items.length + ' 个条目交给 AI：查资料、定维度、重新定档' +
+        (imageCount ? '（' + imageCount + ' 张图会上云）' : '') + '。排完可继续拖拽和对话修改。';
     const panel = openPanel([
       '<h3 class="panel-title">AI 智能排</h3>',
-      '<p class="upgrade-note">把当前 ' + items.length + ' 个条目交给 AI：查资料、定维度、重新定档' +
-        (imageCount ? '（' + imageCount + ' 张图会上云）' : '') + '。排完可继续拖拽和对话修改。</p>',
+      '<p class="upgrade-note">' + note + '</p>',
       '<input type="text" id="up-topic" placeholder="主题，比如：2026 旗舰手机" value="' + escapeHtml(data.title || '') + '">',
       '<p class="upgrade-stage" id="up-stage"></p>',
       '<div class="panel-actions">',

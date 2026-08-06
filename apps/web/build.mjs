@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 src/template/{head.html,styles.css,body.html,editor.js,tail.html} 源部件与 src/hosted/ 托管扩展
- * [OUTPUT]: 对外提供双目标构建：--offline 逐字节重组 skills/hangtola/assets/template.html；--hosted 产出 workers/hangtola/public/（首页/榜单页/离线模板副本）
+ * [OUTPUT]: 对外提供双目标构建：--offline 逐字节重组 skills/hangtola/assets/template.html；--hosted 产出 workers/hangtola/public/（单机版首页/云端榜单页/离线模板副本）
  * [POS]: apps/web 的唯一构建入口——离线单文件是构建产物、模块是源；--check 校验离线产物零漂移
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,13 +17,6 @@ const PUBLIC_DIR = path.join(ROOT, 'workers/hangtola/public');
 /** 离线单文件：五部件按固定语法逐字节重组 */
 function buildOffline() {
   return `${T('head.html')}<style>\n${T('styles.css')}</style>\n${T('body.html')}<script>\n${T('editor.js')}</script>${T('tail.html')}`;
-}
-
-/** 托管页共用外壳：同一套样式 + 附加托管模块 */
-function hostedPage({ title, body, scripts }) {
-  const head = T('head.html')
-    .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
-  return `${head}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/hosted.css'), 'utf8')}</style>\n</head>\n<body>\n${body}\n${scripts.map((s) => `<script type="module">\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted', s), 'utf8')}</script>`).join('\n')}\n</body>\n</html>\n`;
 }
 
 const mode = process.argv[2] ?? '--all';
@@ -45,14 +38,9 @@ console.log('已重组 skills/hangtola/assets/template.html');
 mkdirSync(PUBLIC_DIR, { recursive: true });
 /* 主入口 = 单机版完整编辑器（build-site.mjs 再注入站点外壳与智能排入口） */
 writeFileSync(path.join(PUBLIC_DIR, 'index.html'), offline);
-writeFileSync(path.join(PUBLIC_DIR, 'ai.html'), hostedPage({
-  title: 'AI 智能排 — 夯到拉 Hangtola',
-  body: readFileSync(path.join(ROOT, 'apps/web/src/hosted/home.html'), 'utf8'),
-  scripts: ['home.js'],
-}));
 /* 云端榜单页 = 完整编辑器 + 云适配器：UI 与单机版零分叉，只换持久化引擎 */
 const cloudHead = T('head.html').replace(/<title>[^<]*<\/title>/, '<title>夯到拉榜单</title>');
 writeFileSync(path.join(PUBLIC_DIR, 'board.html'),
-  `${cloudHead}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud.css'), 'utf8')}</style>\n${T('body.html')}<script>\n${T('editor.js')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud-adapter.js'), 'utf8')}</script>${T('tail.html')}`);
+  `${cloudHead}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud.css'), 'utf8')}</style>\n${T('body.html')}<script>\n${T('editor.js')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/image-shrink.js'), 'utf8')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud-adapter.js'), 'utf8')}</script>${T('tail.html')}`);
 copyFileSync(TEMPLATE_OUT, path.join(PUBLIC_DIR, 'template.html'));
-console.log('已产出 workers/hangtola/public/{index(单机版),ai,board,template}.html');
+console.log('已产出 workers/hangtola/public/{index(单机版),board,template}.html');

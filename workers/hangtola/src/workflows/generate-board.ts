@@ -1,7 +1,8 @@
 /**
  * [INPUT]: 依赖 cloudflare:workers 的 WorkflowEntrypoint、agents 的 getAgentByName、R2 资产、三个模型边界与 @hangtola/domain 的 enforceGrounding
- * [OUTPUT]: 对外提供 GenerateBoardWorkflow：parse → vision(每图一步) → curate(纯代码) → evidence(批次) → synthesize → commit 的可恢复生成管线
- * [POS]: 长任务的容错壳——步骤重试与断点续跑由平台保证；无捏造在 curate/enforceGrounding 代码层强制；进度经 DO 广播
+ * [OUTPUT]: 对外提供 GenerateBoardWorkflow：parse → vision(每图一步·6 路并发) → curate(纯代码) → evidence(批次) → synthesize → commit 的可恢复生成管线
+ * [POS]: 长任务的容错壳——步骤重试与断点续跑由平台保证；无捏造在 curate/enforceGrounding 代码层强制；进度经 DO 广播。
+ *        并发闸与体积闸皆由 Workers 运行时约束反推（6 连接 / 128MB isolate），非经验值
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -25,6 +26,13 @@ type ObsResult =
 
 const RETRIES = { retries: { limit: 2, delay: '2 seconds', backoff: 'exponential' } } as const;
 
+/* Workers 单次调用最多 6 条连接同时等响应头，第 7 条只排队不报错——闸开到 6 即触顶，再大是自欺。
+   实测阿里 MaaS 侧 12 路并发零限流，瓶颈全在 Workers 这边。 */
+const VISION_CONCURRENCY = 6;
+/* 128MB isolate 内存护栏：单图在 base64 链路上的峰值约为自身 4~5 倍（buffer + binary + base64 + dataUrl），
+   6 路并发下 6MB 是安全上限。Web 端已压到长边 1280，此闸只拦 MCP/API 直传的漏网原图。 */
+const MAX_VISION_BYTES = 6 * 1024 * 1024;
+
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -47,23 +55,37 @@ export class GenerateBoardWorkflow extends WorkflowEntrypoint<Env, GenerateParam
       await progress('整理输入', 5);
       const assets = await step.do('parse-input', async () => agent.listUploadedAssets());
 
-      /* ---- 识图：每图一步，单图失败不倒全局 ---- */
-      const observations: ObsResult[] = [];
-      for (let i = 0; i < assets.length; i += 1) {
+      /* ---- 识图：每图一步，VISION_CONCURRENCY 路并发，单图失败不倒全局 ----
+             识图是纯函数、图间零依赖，串行是写法的惯性而非数据的因果。
+             步名按资产下标固定，与调度先后无关，Workflow 重放时缓存命中确定；
+             结果按下标回填，与 order_index 的上传序严格同构。 */
+      const observations: ObsResult[] = new Array(assets.length);
+      let cursor = 0;
+      let observed = 0;
+      const pump = async (): Promise<void> => {
+        const i = cursor;
+        cursor += 1;
+        if (i >= assets.length) return;
         const asset = assets[i]!;
-        await progress(`识别图片 ${i + 1}/${assets.length}`, 10 + Math.round((25 * (i + 1)) / assets.length));
         try {
           const obs = await step.do(`vision-${i}`, RETRIES, async () => {
             const object = await this.env.ASSETS.get(asset.r2Key);
             if (!object) throw new Error(`asset ${asset.id} 不在 R2`);
+            if (object.size > MAX_VISION_BYTES) throw new Error(`asset ${asset.id} 超出识图体积上限`);
             const dataUrl = `data:${asset.mime};base64,${toBase64(await object.arrayBuffer())}`;
             return createVisionClient(this.env).observe(dataUrl, asset.name);
           }) as Observation;
-          observations.push({ ...obs, assetId: asset.id, fileName: asset.name });
+          observations[i] = { ...obs, assetId: asset.id, fileName: asset.name };
         } catch {
-          observations.push({ failed: true, assetId: asset.id, fileName: asset.name });
+          observations[i] = { failed: true, assetId: asset.id, fileName: asset.name };
         }
-      }
+        observed += 1;
+        await progress(`识别图片 ${observed}/${assets.length}`, 10 + Math.round((25 * observed) / assets.length));
+        return pump();
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(VISION_CONCURRENCY, assets.length) }, () => pump()),
+      );
 
       /* ---- 汇总候选：纯代码，无捏造名单在此定型 ---- */
       await progress('汇总候选', 45);

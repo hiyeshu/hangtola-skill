@@ -296,6 +296,7 @@ body.file-over::after {
 .cloud-viewer #dock, .cloud-viewer #pool-section { display: none; }
 .cloud-viewer .card-item { pointer-events: none; }
 .cloud-viewer #board-title, .cloud-viewer #board-footnote, .cloud-viewer .tier-label { pointer-events: none; }
+#cloud-rank-pool { margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -1147,6 +1148,63 @@ loadInitialData();
 </script>
 <script>
 /**
+ * [INPUT]: 依赖浏览器 createImageBitmap 与 canvas 编码；无项目内依赖
+ * [OUTPUT]: 对外提供 globalThis.hangtolaShrinkImage(file) → File：长边压至 1280，实测 alpha 决定 PNG/JPEG
+ * [POS]: apps/web/hosted 的上传前置闸——识图 token 与 Worker isolate 内存的源头治理，home.js 与 cloud-adapter.js 共用
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+/* 1280 长边：卡片显示与导出放大都够用，而识图 prompt_tokens 从 2609 降到 ~400。
+   压不动就原样返回——宁可慢，不可坏图。 */
+const MAX_EDGE = 1280;
+const JPEG_QUALITY = 0.85;
+const SMALL_ENOUGH = 512 * 1024;
+
+/** 逐像素验 alpha：截图存 PNG 极常见，全不透明就该走 JPEG 省一个数量级 */
+function hasAlpha(ctx, w, h) {
+  const { data } = ctx.getImageData(0, 0, w, h);
+  for (let i = 3; i < data.length; i += 4) if (data[i] < 255) return true;
+  return false;
+}
+
+globalThis.hangtolaShrinkImage = async function hangtolaShrinkImage(source) {
+  const type = source?.type ?? '';
+  /* 动图与矢量重编码即损坏语义，直接放行 */
+  if (!type.startsWith('image/') || /^image\/(gif|svg\+xml)$/.test(type)) return source;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(source);
+  } catch {
+    return source;                                   // 解不开就别碰
+  }
+  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  if (scale === 1 && source.size <= SMALL_ENOUGH) {
+    bitmap.close?.();
+    return source;                                   // 已经够小，重编码只会掉质量
+  }
+
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+
+  const keepAlpha = hasAlpha(ctx, w, h);
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, keepAlpha ? 'image/png' : 'image/jpeg', JPEG_QUALITY);
+  });
+  if (!blob || blob.size >= source.size) return source;   // 压完更大就认输
+
+  const stem = (source.name ?? '图片').replace(/\.[^.]+$/, '');
+  return new File([blob], `${stem}${keepAlpha ? '.png' : '.jpg'}`, { type: blob.type });
+};
+</script>
+<script>
+/**
  * [INPUT]: 依赖编辑器全局（applyData/serialize/items/autosave/openPanel/closePanel/escapeHtml/持久化三函数）与 ws 协议、资产上传 API
  * [OUTPUT]: 对外提供云同步引擎：编辑器一切动作 diff 编译为 BoardPatchV1 经 ws 提交；回声全量渲染；dock 注入「智能改榜」；⋯ 面板注入分享/离线版
  * [POS]: 云端榜单页 = 单机版编辑器 + 本适配器——UI 零分叉，只换持久化引擎；本地 IndexedDB 在云模式被整体短路
@@ -1244,13 +1302,16 @@ loadInitialData();
         if (card.content.image) {
           card.el.dataset.uploading = '1';
           try {
+            /* 先解码再压，压完才知道真实 mime——prepare 必须拿到压后的类型，否则 R2 与 DB 记录打架 */
+            const raw = await (await fetch(card.content.image)).blob();
+            const file = await globalThis.hangtolaShrinkImage(
+              new File([raw], `${card.content.text || '图片'}.png`, { type: raw.type || 'image/png' }));
             const prep = await (await fetch(`/api/boards/${boardId}/assets/prepare`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Edit-Ref': editKey },
-              body: JSON.stringify({ files: [{ name: `${card.content.text || '图片'}.png`, mime: (card.content.image.match(/^data:([^;]+)/) || [])[1] || 'image/png' }] }),
+              body: JSON.stringify({ files: [{ name: file.name, mime: file.type }] }),
             })).json();
-            const blob = await (await fetch(card.content.image)).blob();
-            await fetch(prep.assets[0].uploadUrl, { method: 'PUT', body: blob });
+            await fetch(prep.assets[0].uploadUrl, { method: 'PUT', body: file });
             image = { kind: 'asset', assetId: prep.assets[0].assetId };
           } finally {
             delete card.el.dataset.uploading;
@@ -1412,8 +1473,10 @@ loadInitialData();
     const exportBtn = dock.querySelector('[data-act="export"]');
     dock.insertBefore(btn, exportBtn?.nextSibling ?? null);
     btn.addEventListener('click', () => {
+      const poolCount = document.querySelectorAll('.tier-items[data-tier="pool"] .card-item').length;
       const panel = openPanel([
         '<h3 class="panel-title">智能改榜</h3>',
+        poolCount ? `<button class="p-btn dark wide" id="cloud-rank-pool">✨ 把备选区 ${poolCount} 个条目排进榜单</button>` : '',
         '<p id="cloud-chat-log" class="cloud-chat-log">告诉 AI 想怎么改：移动、改名、改标题、加条目都行。</p>',
         '<input type="text" id="cloud-chat-text" placeholder="把 A 移到夯、标题改成 XX…">',
         '<div class="panel-actions">',
@@ -1421,6 +1484,13 @@ loadInitialData();
         '  <button class="p-btn dark" id="cloud-chat-go">改榜</button>',
         '</div>',
       ].join(''));
+      panel.querySelector('#cloud-rank-pool')?.addEventListener('click', (e) => {
+        if (socket?.readyState !== WebSocket.OPEN) return;
+        e.target.disabled = true;
+        e.target.textContent = 'AI 正在识图、查资料、定档…';
+        panel.querySelector('#cloud-chat-log').textContent = '新条目会补齐调研再入档，稍等。';
+        socket.send(JSON.stringify({ type: 'rankPool' }));
+      });
       panel.querySelector('#cloud-chat-cancel').addEventListener('click', closePanel);
       const input = panel.querySelector('#cloud-chat-text');
       input.focus();

@@ -189,6 +189,21 @@ function mockClient(): ModelClient {
     },
 
     async reviseOps(_doc, instruction) {
+      /* RANK_POOL 前缀 = 增量定档指令（真实模型当普通文本理解；桩确定性轮转入档） */
+      const rank = instruction.match(/^RANK_POOL:(\[[\s\S]*?\])\n/);
+      if (rank) {
+        try {
+          const targets = JSON.parse(rank[1]!) as { id: string; text: string }[];
+          const keys = ['hang', 'top', 'upper', 'npc'] as const;
+          const ops = targets.map((t, i) => PatchOp.parse({
+            op: 'moveItem', itemId: t.id, to: { tier: keys[i % 4], index: 0 },
+          }));
+          const summary = `把 ${targets.length} 个备选排进榜单`;
+          return { ok: true, ops, summary, reply: summary };
+        } catch {
+          return { ok: false, ops: [], summary: '', reply: '备选定档失败，条目保持在备选区。' };
+        }
+      }
       const match = instruction.match(/^MOCK:(.*)$/s);
       if (!match) {
         return { ok: false, ops: [], summary: '', reply: '这次指令我没能编译成合法修改，榜单保持原样。换个说法试试？' };

@@ -96,13 +96,16 @@
         if (card.content.image) {
           card.el.dataset.uploading = '1';
           try {
+            /* 先解码再压，压完才知道真实 mime——prepare 必须拿到压后的类型，否则 R2 与 DB 记录打架 */
+            const raw = await (await fetch(card.content.image)).blob();
+            const file = await globalThis.hangtolaShrinkImage(
+              new File([raw], `${card.content.text || '图片'}.png`, { type: raw.type || 'image/png' }));
             const prep = await (await fetch(`/api/boards/${boardId}/assets/prepare`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Edit-Ref': editKey },
-              body: JSON.stringify({ files: [{ name: `${card.content.text || '图片'}.png`, mime: (card.content.image.match(/^data:([^;]+)/) || [])[1] || 'image/png' }] }),
+              body: JSON.stringify({ files: [{ name: file.name, mime: file.type }] }),
             })).json();
-            const blob = await (await fetch(card.content.image)).blob();
-            await fetch(prep.assets[0].uploadUrl, { method: 'PUT', body: blob });
+            await fetch(prep.assets[0].uploadUrl, { method: 'PUT', body: file });
             image = { kind: 'asset', assetId: prep.assets[0].assetId };
           } finally {
             delete card.el.dataset.uploading;
@@ -264,8 +267,10 @@
     const exportBtn = dock.querySelector('[data-act="export"]');
     dock.insertBefore(btn, exportBtn?.nextSibling ?? null);
     btn.addEventListener('click', () => {
+      const poolCount = document.querySelectorAll('.tier-items[data-tier="pool"] .card-item').length;
       const panel = openPanel([
         '<h3 class="panel-title">智能改榜</h3>',
+        poolCount ? `<button class="p-btn dark wide" id="cloud-rank-pool">✨ 把备选区 ${poolCount} 个条目排进榜单</button>` : '',
         '<p id="cloud-chat-log" class="cloud-chat-log">告诉 AI 想怎么改：移动、改名、改标题、加条目都行。</p>',
         '<input type="text" id="cloud-chat-text" placeholder="把 A 移到夯、标题改成 XX…">',
         '<div class="panel-actions">',
@@ -273,6 +278,13 @@
         '  <button class="p-btn dark" id="cloud-chat-go">改榜</button>',
         '</div>',
       ].join(''));
+      panel.querySelector('#cloud-rank-pool')?.addEventListener('click', (e) => {
+        if (socket?.readyState !== WebSocket.OPEN) return;
+        e.target.disabled = true;
+        e.target.textContent = 'AI 正在识图、查资料、定档…';
+        panel.querySelector('#cloud-chat-log').textContent = '新条目会补齐调研再入档，稍等。';
+        socket.send(JSON.stringify({ type: 'rankPool' }));
+      });
       panel.querySelector('#cloud-chat-cancel').addEventListener('click', closePanel);
       const input = panel.querySelector('#cloud-chat-text');
       input.focus();

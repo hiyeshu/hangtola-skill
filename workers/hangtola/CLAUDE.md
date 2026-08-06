@@ -7,12 +7,12 @@ Hangtola 自有 Agent 的运行时：每块榜单一个 Durable Object 实例，
 wrangler.toml: Worker 配置真相源——DO SQLite 迁移（new_sqlite_classes）、nodejs_compat、MOCK_MODELS 开发默认；密钥经 .dev.vars（本地，git 忽略）与 wrangler secret（生产）注入，永不入库
 src/index.ts: 唯一入口。Hono 路由零业务逻辑全部薄封装到 DO RPC；routeAgentRequest 先行接管 ws；X-Edit-Ref 头承载编辑能力；冲突 409、非法 422、越权 403 的映射只在这里；/b/:id 服务托管榜单壳、/api/boards/:id/export 出 JSON 或离线单文件（注入转义与 render-board 同构）；静态资产经 [assets] STATIC 绑定（public/ 由 apps/web 构建产出）
 src/env.ts: Env 绑定契约（DO 命名空间 + 模型环境变量）唯一出处
-src/agent/hangtola-agent.ts: DO 本体。#commit 是全部修改的唯一写入路径（校验 baseRevision → applyPatch → 写 revision → 广播）；revert 写新版本不改历史；chatRpc 模型编译失败零 revision；generateRpc 建任务并点火 Workflow；reportProgress/commitGenerated(幂等)/failTask 为 Workflow 回调面（仅 Worker 内 RPC 可达）；prepareAssets 发一次性上传令牌（哈希落盘）、verifyAssetUpload/markAssetUploaded/listUploadedAssets 守资产态；ws 帧 auth/patch/chat/revert/resync，未认证只收 State 同步；鉴权态存 connection state（跨 DO 休眠持久），广播按连接态收窄
+src/agent/hangtola-agent.ts:（含 #rankPool 增量定档：备选区条目补识图/补证据→RANK_POOL 指令→白名单 move/update→commit） DO 本体。#commit 是全部修改的唯一写入路径（校验 baseRevision → applyPatch → 写 revision → 广播）；revert 写新版本不改历史；chatRpc 模型编译失败零 revision；generateRpc 建任务并点火 Workflow；reportProgress/commitGenerated(幂等)/failTask 为 Workflow 回调面（仅 Worker 内 RPC 可达）；prepareAssets 发一次性上传令牌（哈希落盘）、verifyAssetUpload/markAssetUploaded/listUploadedAssets 守资产态；ws 帧 auth/patch/chat/revert/resync，未认证只收 State 同步；鉴权态存 connection state（跨 DO 休眠持久），广播按连接态收窄
 src/agent/sql.ts: 存储契约——meta/revisions/conversation/tasks/assets 建表 DDL 与行类型；assets 按 order_index 保上传序
 src/models/deepseek.ts: DeepSeek 边界（draftBoard 纯主题 / synthesizeBoard 候选定档 / reviseOps NL→ops），结构化输出修复一次仍败即放弃；MOCK 桩确定性可预言
-src/models/vision.ts: 通用视觉边界（VISION_* 三变量可换供应商，现 Qwen3.7-Flash @ 阿里 MaaS，json 模式+关思考），observe(dataUrl)→结构化观察；MOCK 按文件名产出、unknown 前缀模拟失败
+src/models/vision.ts: 通用视觉边界（VISION_* 三变量可换供应商，现 Qwen3.7-Flash @ 阿里 MaaS，json 模式+关思考），observe(dataUrl)→结构化观察；单次实测 3.4~5.1s 故设 25s abortSignal 止损；maxRetries=0 把重试权全交 Workflow step，杜绝 SDK×step 双层退避相乘（否则单图最坏 9 次调用）；MOCK 按文件名产出、unknown 前缀模拟失败
 src/models/exa.ts: Exa 调研边界；无 key/失败一律 insufficient（降级不臆造）；MOCK 名称含「冷门」触发 insufficient
-src/workflows/generate-board.ts: 可恢复生成管线 parse→vision每图一步→curate纯代码→evidence批次→synthesize→commit；单图失败不倒全局；候选丢失代码补回 pool；enforceGrounding 押回强制名单；commit 幂等防重放
+src/workflows/generate-board.ts: 可恢复生成管线 parse→vision每图一步→curate纯代码→evidence批次→synthesize→commit；识图 6 路并发（= Workers 同时等响应头的连接上限，非经验值），步名按资产下标固定保重放缓存确定性，结果按下标回填与 order_index 严格同构；MAX_VISION_BYTES 6MB 拦 MCP/API 直传的漏网原图，护住 128MB isolate；单图失败不倒全局；候选丢失代码补回 pool；enforceGrounding 押回强制名单；commit 幂等防重放
 src/mcp/tools.ts: Remote MCP（无状态 streamable-HTTP JSON-RPC）：七工具全部薄封装 DO RPC，零会话零独立逻辑；无 editRef 只见公开投影
 test/smoke.mjs: P2+P3 验收执行器——25 项行为断言（隐私投影/409/零revision/历史链/403/资产令牌/上传序/强制入pool/读透）
 

@@ -1,7 +1,8 @@
 /**
  * [INPUT]: 依赖 ai（generateObject）与 @ai-sdk/openai-compatible（任意 openai 兼容视觉端点，当前阿里 MaaS Qwen 3.7 Flash）
- * [OUTPUT]: 对外提供 createVisionClient：observe(dataUrl, hint) → 结构化识图；MOCK 桩按文件名确定性产出/失败
- * [POS]: workers/hangtola 的识图边界，供应商可换（VISION_* 三变量）；失败由上层降级（入 pool），不臆造
+ * [OUTPUT]: 对外提供 createVisionClient：observe(dataUrl, hint) → 结构化识图，25s 超时即止损；MOCK 桩按文件名确定性产出/失败
+ * [POS]: workers/hangtola 的识图边界，供应商可换（VISION_* 三变量）；失败由上层降级（入 pool），不臆造。
+ *        重试权不在此层：maxRetries=0 交给 Workflow step 独家退避，避免双层重试相乘
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -25,6 +26,8 @@ const ObservationSchema = z.object({
 });
 export type Observation = z.infer<typeof ObservationSchema>;
 
+const VISION_TIMEOUT_MS = 25_000;
+
 export interface VisionClient {
   observe(imageDataUrl: string, hint: string): Promise<Observation>;
 }
@@ -41,6 +44,11 @@ function realClient(env: VisionEnv): VisionClient {
       const { object } = await generateObject({
         model,
         mode: 'json',
+        /* 重试权独归 Workflow step：SDK 默认 maxRetries=2 会与 step 的 limit=2 相乘，
+           单图最坏放大到 9 次调用、40s 以上。重试只能有一个权威。 */
+        maxRetries: 0,
+        /* 实测单次 3.4~5.1s（并发 1~12），25s 是慢调用的止损线，超时即交给 step 退避重试 */
+        abortSignal: AbortSignal.timeout(VISION_TIMEOUT_MS),
         providerOptions: { vision: { enable_thinking: false } },
         schema: ObservationSchema,
         messages: [{

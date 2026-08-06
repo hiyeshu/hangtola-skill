@@ -26,3 +26,4 @@
 .cloud-viewer #dock, .cloud-viewer #pool-section { display: none; }
 .cloud-viewer .card-item { pointer-events: none; }
 .cloud-viewer #board-title, .cloud-viewer #board-footnote, .cloud-viewer .tier-label { pointer-events: none; }
+#cloud-rank-pool { margin-bottom: 12px; }
