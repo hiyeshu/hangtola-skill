@@ -309,6 +309,7 @@ body.file-over::after {
   border-radius: 50%; background: #ff453a;
   box-shadow: 0 0 0 2px var(--page);
 }
+#ai-bar[hidden] { display: none; }   /* 显式 display:flex 会压过 hidden 的 UA 规则，必须补刀 */
 #ai-bar {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(80px + var(--safe-b, 0px)); z-index: 210;   /* 悬于 dock 上方一层，不夺其位 */
