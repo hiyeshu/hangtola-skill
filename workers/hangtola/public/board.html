@@ -269,468 +269,1248 @@ body.file-over::after {
 }
 .hint p { margin: 0; }
 /* ============================================================
-   托管页附加样式：复用编辑器 CSS 变量（Apple 外壳），只加不改
+   云端榜单页附加样式：只加不改，视觉语言完全继承编辑器
    ============================================================ */
-.hero { text-align: center; padding: 48px 0 8px; }
-.hero h1 { font-size: clamp(30px, 6vw, 44px); font-weight: 700; letter-spacing: -0.374px; }
-.hero p { color: var(--dim); margin-top: 8px; font-size: 15px; }
-.gen-card {
-  max-width: 560px; margin: 26px auto; padding: 18px;
-  background: var(--panel-bg); border-radius: 18px;
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.10);
-}
-.gen-card textarea {
-  width: 100%; border: 1px solid var(--input-bd); border-radius: 11px;
-  background: var(--input-bg); color: var(--ink);
-  padding: 12px 14px; font-size: 15px; font-family: inherit; resize: none; height: 96px; outline: none;
-}
-.gen-card textarea:focus { border-color: var(--accent-focus); box-shadow: 0 0 0 3px rgba(0,113,227,0.18); }
-.gen-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
-.gen-file { flex: 1; color: var(--dim); font-size: 13px; cursor: pointer; }
-.gen-btn {
-  border: none; border-radius: 999px; background: var(--accent); color: #fff;
-  font-weight: 600; font-size: 15px; font-family: inherit; padding: 12px 22px; cursor: pointer;
-}
-.gen-btn:disabled { opacity: 0.5; cursor: default; }
-.progress-card { max-width: 560px; margin: 0 auto; text-align: center; color: var(--dim); font-size: 14px; }
-.progress-bar { height: 6px; border-radius: 999px; background: var(--panel-btn); overflow: hidden; margin: 12px 0; }
-.progress-bar > div { height: 100%; background: var(--accent); width: 0; transition: width 300ms ease; }
-.board-shell { max-width: 1100px; margin: 0 auto; }
-.board-title { text-align: center; font-size: clamp(22px, 4.5vw, 34px); font-weight: 700; letter-spacing: -0.374px; margin: 18px 0; }
-.chat-dock {
+#cloud-toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(16px + var(--safe-b, 0px)); z-index: 200;
-  display: flex; gap: 6px; width: min(560px, calc(100vw - 32px));
-  padding: 6px; border-radius: 999px; background: var(--glass);
-  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.12);
-}
-.chat-dock input {
-  flex: 1; border: none; background: transparent; color: var(--ink);
-  font-size: 15px; font-family: inherit; padding: 10px 14px; outline: none;
-}
-.chat-dock button {
-  border: none; border-radius: 999px; background: var(--accent); color: #fff;
-  font-weight: 600; font-size: 14px; font-family: inherit; padding: 10px 18px; cursor: pointer;
-}
-.toast {
-  position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(84px + var(--safe-b, 0px)); z-index: 210;
+  bottom: calc(84px + var(--safe-b, 0px)); z-index: 260;
   display: flex; gap: 10px; align-items: center;
   background: var(--panel-bg); color: var(--ink); font-size: 14px;
   padding: 10px 16px; border-radius: 14px;
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.18);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.18);
 }
-.toast button { border: none; background: none; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 14px; }
-.board-actions { text-align: center; margin: 16px 0 120px; display: flex; gap: 10px; justify-content: center; }
-.board-actions a, .board-actions button {
-  border: none; background: var(--panel-btn); color: var(--ink); text-decoration: none;
-  font-size: 13px; font-family: inherit; padding: 9px 16px; border-radius: 999px; cursor: pointer;
+#cloud-toast[hidden] { display: none; }
+#cloud-toast button {
+  border: none; background: none; color: var(--accent);
+  font-weight: 600; cursor: pointer; font-size: 14px; font-family: inherit; padding: 0;
 }
-.add-bar { width: min(420px, calc(100vw - 32px)); }
-.add-bar input {
-  flex: 1; border: 1px solid var(--input-bd); border-radius: 10px;
+.cloud-chat-log { font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 12px; }
+#cloud-chat-text {
+  width: 100%; border: 1px solid var(--input-bd); border-radius: 11px;
   background: var(--input-bg); color: var(--ink);
-  font-size: 14px; font-family: inherit; padding: 8px 12px; outline: none;
+  font-size: 15px; font-family: inherit; padding: 11px 14px; outline: none;
 }
+#cloud-chat-text:focus { border-color: var(--accent-focus); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18); }
+/* 围观模式：只读 */
+.cloud-viewer #dock, .cloud-viewer #pool-section { display: none; }
+.cloud-viewer .card-item { pointer-events: none; }
+.cloud-viewer #board-title, .cloud-viewer #board-footnote, .cloud-viewer .tier-label { pointer-events: none; }
 </style>
 </head>
 <body>
-<div class="board-shell">
-  <h1 class="board-title" id="hosted-title"></h1>
-  <main id="board"></main>
-  <p id="board-footnote"></p>
-  <section id="pool-section" hidden>
-    <h2>备选区</h2>
-    <div id="pool-wrap"><div class="tier-items" id="pool-items"></div></div>
-  </section>
-  <div class="progress-card" id="progress" hidden>
-    <div class="progress-bar"><div id="progress-fill"></div></div>
-    <span id="progress-stage"></span>
-  </div>
-  <div class="board-actions">
-    <a href="/ai" id="new-board">再排一个</a>
-    <button id="add-text-btn" hidden>＋ 文字</button>
-    <button id="add-image-btn" hidden>＋ 图片</button>
-    <button id="export-html" hidden>下载离线版</button>
-    <button id="export-json" hidden>导出数据 JSON</button>
-  </div>
-</div>
-<input type="file" id="image-input" accept="image/*" multiple hidden>
-<div class="toast add-bar" id="add-bar" hidden>
-  <input id="add-input" placeholder="输入名称，支持逗号 / 顿号批量">
-  <button id="add-confirm">添加</button>
-</div>
-<div class="chat-dock" id="chat-dock" hidden>
-  <input id="chat-input" placeholder="对榜单下指令：把 A 移到夯、改标题…">
-  <button id="chat-send">改榜</button>
-</div>
-<div class="toast" id="toast" hidden>
-  <span id="toast-text"></span>
-  <button id="toast-undo">撤销</button>
+
+<h1 id="board-title" contenteditable="true" spellcheck="false"></h1>
+
+<main id="board"></main>
+<p id="board-footnote" contenteditable="true" spellcheck="false"></p>
+
+<section id="pool-section">
+  <h2>待定</h2>
+  <div id="pool-wrap"><div class="tier-items" data-tier="pool"></div></div>
+</section>
+
+<div class="hint" aria-label="使用说明">
+  <p>点击、拖动卡片即可排序。</p>
+  <p>图片支持一次多选、拖入或直接粘贴。记录自动保存在当前设备</p>
 </div>
 
-<script type="module">
-/**
- * [INPUT]: 依赖公开投影 API、编辑者 ws 协议（auth/doc.full/doc.revision/chat/revert）与编辑器同款 CSS 类
- * [OUTPUT]: 对外提供榜单页：只读实时渲染；持 editRef 者获得聊天改榜、变化摘要 + 一键撤销、离线版/JSON 导出
- * [POS]: apps/web 托管层的榜单体验；渲染复用 .tier/.card-item 视觉，V2 与公开投影统一降维为显示模型
- * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
- */
+<nav id="dock">
+  <button data-act="text">＋ 文字</button>
+  <button data-act="image">＋ 图片</button>
+  <button data-act="export" class="primary">导出图片</button>
+  <button data-act="theme" id="theme-btn" aria-label="切换深浅色">☾</button>
+  <button data-act="more" aria-label="更多">⋯</button>
+</nav>
+
+<input type="file" id="file-input" class="hidden-input" accept="image/*" multiple>
+<input type="file" id="json-input" class="hidden-input" accept="application/json,.json">
+
+<!-- hangtola 技能在此注入榜单数据（JSON），保持独立运行时为空对象 -->
+<script id="hangtola-data" type="application/json">{}</script>
+
+<script>
+/* ============================================================
+   常量与状态
+   ============================================================ */
+const TIER_DEFS = [
+  { key: 'hang',  label: '夯',     color: '#fb2018' },
+  { key: 'top',   label: '顶级',   color: '#ffa640' },
+  { key: 'upper', label: '人上人', color: '#fbf600' },
+  { key: 'npc',   label: 'NPC',    color: '#fdf1c7' },
+  { key: 'la',    label: '拉完了', color: '#ffffff' }
+];
+const RATIOS = { '3:4': [1200, 1600], '4:3': [1600, 1200], '16:9': [1920, 1080] };
+/* 导出配色随当前模式（底为透明，只管网格与文字）：浅色 = 参考图原味，深色 = 经典暗版 */
+const THEMES = {
+  light: { row: '#d2d4d8', line: '#111213', ink: '#111213', chipBg: '#1d1d1f', chipInk: '#ffffff', dim: '#6e7480', capBg: '#ffffff', ring: 'rgba(17,18,19,0.28)' },
+  dark:  { row: '#3a3a3e', line: '#0b0b0c', ink: '#f5f5f7', chipBg: '#f5f5f7', chipInk: '#111213', dim: '#98989f', capBg: '#1c1c1e', ring: 'rgba(0,0,0,0.5)' }
+};
+/* 文字卡可选底色：iOS 系统色，与 Apple 外壳同源；null = 默认墨块（随主题反色） */
+const CHIP_COLORS = ['#ffffff', '#ff453a', '#ff9f0a', '#ffd60a', '#30d158', '#0a84ff', '#bf5af2'];
+const items = new Map();          // id -> { text, image, note, color }
+let boardId = 'default';
+let nextId = 1;
+/* 底部声明：默认为空（删比加烦），想要的人在 ⋯ 菜单一键填入；字面量不依赖 DOM */
+const DEFAULT_FOOTNOTE = '以上内容纯属个人主观体验，不代表任何客观评价，仅供参考';
 
 const $ = (sel) => document.querySelector(sel);
-const boardId = location.pathname.split('/').filter(Boolean).pop();
-const editKey = new URLSearchParams(location.hash.replace(/^#/, '')).get('k')
-  || localStorage.getItem(`hangtola-edit:${boardId}`);
-if (editKey) localStorage.setItem(`hangtola-edit:${boardId}`, editKey);
+const board = $('#board');
 
-let latestDoc = null;          // 编辑者：完整 V2；围观者：公开投影
-let latestHead = null;
-
-/* ---- 显示模型：V2 条目与公开条目统一成 {text, imageUrl, color} ---- */
-function displayImage(image) {
-  if (!image) return null;
-  if (typeof image === 'string') return image;
-  if (image.kind === 'dataurl') return image.dataUrl;
-  return `/assets/${boardId}/${image.assetId}`;
+/* ============================================================
+   构建榜单骨架（档位名可编辑）
+   ============================================================ */
+for (const t of TIER_DEFS) {
+  const row = document.createElement('div');
+  row.className = 'tier';
+  row.innerHTML = `<div class="tier-label" contenteditable="true" spellcheck="false"
+                        style="background:${t.color}" data-key="${t.key}">${t.label}</div>
+                   <div class="tier-items" data-tier="${t.key}"></div>`;
+  board.appendChild(row);
 }
 
+/* ============================================================
+   大图榜单持久化：IndexedDB 承担主存储，localStorage 只做旧数据回退
+   ============================================================ */
+const DB_NAME = 'hangtola';
+const DB_STORE = 'boards';
+
+function openBoardDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('IndexedDB 不可用')); return; }
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DB_STORE)) {
+        request.result.createObjectStore(DB_STORE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadSavedBoard(id) {
+  try {
+    const db = await openBoardDB();
+    const saved = await new Promise((resolve, reject) => {
+      const request = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(id);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    if (saved) return saved;
+  } catch (error) {
+    console.warn('IndexedDB 读取失败，回退旧存储', error);
+  }
+  try { return JSON.parse(localStorage.getItem('hangtola:' + id) || 'null'); }
+  catch (error) { return null; }
+}
+
+async function persistBoard(data) {
+  try {
+    const db = await openBoardDB();
+    await new Promise((resolve, reject) => {
+      const request = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).put(data);
+      request.onsuccess = resolve;
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+  } catch (error) {
+    try { localStorage.setItem('hangtola:' + data.id, JSON.stringify(data)); }
+    catch (fallbackError) { console.warn('自动保存失败，请导出 JSON 保留数据', fallbackError); }
+  }
+}
+
+async function removeSavedBoard(id) {
+  try {
+    const db = await openBoardDB();
+    await new Promise((resolve, reject) => {
+      const request = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).delete(id);
+      request.onsuccess = resolve;
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+  } catch (error) {}
+  localStorage.removeItem('hangtola:' + id);
+}
+
+/* ============================================================
+   数据载入：内嵌 JSON vs 本地自动保存，savedAt 新者胜
+   ============================================================ */
+async function loadInitialData() {
+  let embedded = {};
+  try { embedded = JSON.parse($('#hangtola-data').textContent || '{}'); } catch (e) {}
+  boardId = embedded.id || 'default';
+  const saved = await loadSavedBoard(boardId);
+  const eTime = Date.parse(embedded.savedAt || 0) || 0;
+  const sTime = saved ? (Date.parse(saved.savedAt || 0) || 1) : -1;
+  applyData((sTime >= eTime && saved) ? saved : embedded);
+}
+
+function applyData(data) {
+  if (!data || typeof data !== 'object') return;
+  items.clear();
+  window.__hangtolaDims = Array.isArray(data.dimensions) ? data.dimensions : [];
+  document.querySelectorAll('.tier-items').forEach(el => el.innerHTML = '');
+  if (typeof data.title === 'string') $('#board-title').textContent = data.title;
+  /* 字段缺失 = 用默认声明；显式空串 = 用户主动清掉，尊重之 */
+  $('#board-footnote').textContent =
+    typeof data.footnote === 'string' ? data.footnote.trim() : '';
+  const buckets = {};
+  (data.tiers || []).forEach(t => {
+    buckets[t.key] = t.items || [];
+    const labelEl = document.querySelector(`.tier-label[data-key="${t.key}"]`);
+    if (labelEl && t.label) labelEl.textContent = t.label;
+  });
+  buckets.pool = data.pool || [];
+  for (const [tierKey, list] of Object.entries(buckets)) {
+    const container = document.querySelector(`.tier-items[data-tier="${tierKey}"]`);
+    if (!container) continue;
+    for (const it of list) {
+      const id = 'i' + (nextId++);
+      items.set(id, {
+        text: it.text || '', image: it.image || null,
+        note: it.note || '', color: it.image ? null : (it.color || null)
+      });
+      container.appendChild(buildCard(id));
+    }
+  }
+}
+
+/* ============================================================
+   序列化与自动保存
+   ============================================================ */
+function serialize() {
+  const readContainer = (key) =>
+    [...document.querySelectorAll(`.tier-items[data-tier="${key}"] .card-item`)]
+      .map(el => {
+        const it = items.get(el.dataset.id);
+        return { text: it.text, image: it.image, note: it.note, color: it.color };
+      });
+  return {
+    id: boardId,
+    title: $('#board-title').textContent.trim(),
+    footnote: $('#board-footnote').textContent.trim(),
+    savedAt: new Date().toISOString(),
+    dimensions: window.__hangtolaDims || [],
+    tiers: TIER_DEFS.map(t => ({
+      key: t.key,
+      label: document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent.trim() || t.label,
+      color: t.color,
+      items: readContainer(t.key)
+    })),
+    pool: readContainer('pool')
+  };
+}
+
+let saveTimer = null;
+function autosave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => persistBoard(serialize()), 400);
+}
+$('#board-title').addEventListener('input', autosave);
+$('#board-footnote').addEventListener('input', autosave);
+/* contenteditable 清空后常残留 <br>，:empty 便失效——失焦时抹平，让空的真正消失 */
+for (const sel of ['#board-title', '#board-footnote']) {
+  $(sel).addEventListener('blur', (e) => {
+    if (!e.target.textContent.trim()) { e.target.textContent = ''; autosave(); }
+  });
+}
+document.body.addEventListener('input', (e) => { if (e.target.classList.contains('tier-label')) autosave(); });
+
+/* ============================================================
+   卡片：创建 / 刷新 / 新增
+   ============================================================ */
+/* 相对亮度：决定彩色底上用黑字还是白字 */
+function lum(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+}
+/* 字号随字数自适应：字少则大，字多则小 */
 function fsClass(t) { const n = t.length; return n <= 2 ? 'fs-xl' : n <= 4 ? 'fs-l' : n <= 8 ? 'fs-m' : 'fs-s'; }
 
-function render(doc) {
-  $('#hosted-title').textContent = doc.title ?? '';
-  const board = $('#board');
-  board.innerHTML = '';
-  for (const tier of doc.tiers) {
-    const row = document.createElement('div');
-    row.className = 'tier';
-    const label = document.createElement('div');
-    label.className = 'tier-label';
-    label.style.background = tier.color;
-    label.textContent = tier.label;
-    const items = document.createElement('div');
-    items.className = 'tier-items';
-    for (const item of tier.items) items.appendChild(card(item));
-    row.append(label, items);
-    board.appendChild(row);
-  }
-  $('#board-footnote').textContent = doc.footnote ?? '';
-  const pool = doc.pool ?? [];
-  $('#pool-section').hidden = pool.length === 0;
-  const poolBox = $('#pool-items');
-  poolBox.innerHTML = '';
-  for (const item of pool) poolBox.appendChild(card(item));
-}
-
-function card(item) {
+function buildCard(id) {
+  const it = items.get(id);
   const el = document.createElement('div');
-  if (item.id) { el.dataset.itemId = item.id; el.dataset.itemText = item.text ?? ''; }
-  const imageUrl = displayImage(item.image);
-  if (imageUrl) {
+  el.dataset.id = id;
+  el.title = it.text;
+  if (it.image) {
     el.className = 'card-item is-img';
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb';
-    const img = document.createElement('img');
-    img.src = imageUrl;
-    thumb.appendChild(img);
-    el.appendChild(thumb);
-    if (item.text) {
-      const name = document.createElement('div');
-      name.className = 'name';
-      name.textContent = item.text;
-      el.appendChild(name);
-    }
+    el.innerHTML = `<div class="thumb"><img src="${it.image}" alt=""></div>` +
+                   (it.text ? `<div class="name"></div>` : '');
+    if (it.text) el.querySelector('.name').textContent = it.text;
   } else {
     el.className = 'card-item is-txt';
-    const txt = document.createElement('div');
-    txt.className = `txt ${fsClass(item.text ?? '')}`;
-    txt.textContent = item.text ?? '';
-    if (item.color) {
-      el.style.background = item.color;
-      const n = parseInt(item.color.slice(1), 16);
-      const lum = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
-      txt.style.color = lum > 0.62 ? '#111213' : '#fff';
+    el.innerHTML = `<div class="txt ${fsClass(it.text)}"></div>`;
+    const tx = el.querySelector('.txt');
+    tx.textContent = it.text;
+    if (it.color) {
+      el.style.background = it.color;
+      tx.style.color = lum(it.color) > 0.62 ? '#111213' : '#fff';
     }
-    el.appendChild(txt);
   }
   return el;
 }
 
-/* ---- 进度（直链进入生成中的榜单时） ---- */
-async function pollPublic() {
-  const snapshot = await (await fetch(`/api/boards/${boardId}`)).json();
-  if (snapshot.error) { $('#hosted-title').textContent = '榜单不存在'; return null; }
-  const gen = snapshot.generation;
-  const running = gen.status === 'running';
-  $('#progress').hidden = !running;
-  if (running) {
-    $('#progress-stage').textContent = gen.stage;
-    $('#progress-fill').style.width = `${gen.pct}%`;
-  }
-  if (snapshot.publicDoc && !editKey) render(snapshot.publicDoc);
-  return snapshot;
-}
-
-/* ---- 编辑者：ws 实时 + 聊天 + 撤销 + 导出 ---- */
-let activeSocket = null;
-
-function connectEditor() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(`${proto}://${location.host}/agents/hangtola-agent/${boardId}`);
-  activeSocket = socket;
-  let undoTarget = null;
-
-  socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'auth', editRef: editKey })));
-  socket.addEventListener('message', (event) => {
-    let frame;
-    try { frame = JSON.parse(event.data); } catch { return; }
-    switch (frame.type) {
-      case 'auth.ok':
-        $('#chat-dock').hidden = false;
-        $('#export-html').hidden = false;
-        $('#export-json').hidden = false;
-        $('#add-text-btn').hidden = false;
-        $('#add-image-btn').hidden = false;
-        break;
-      case 'auth.fail':
-        localStorage.removeItem(`hangtola-edit:${boardId}`);
-        break;
-      case 'doc.full':
-        latestDoc = frame.doc; latestHead = frame.head;
-        render(frame.doc);
-        break;
-      case 'doc.revision':
-        latestDoc = frame.doc; latestHead = frame.revision.id;
-        render(frame.doc);
-        if (frame.revision.kind === 'patch' && frame.revision.parentId) {
-          undoTarget = frame.revision.parentId;
-          $('#toast-text').textContent = frame.revision.summary;
-          $('#toast').hidden = false;
-          clearTimeout(window.__toastTimer);
-          window.__toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 8000);
-        }
-        break;
-      case 'chat.done':
-        $('#chat-send').disabled = false;
-        if (!frame.revisionId) {
-          $('#toast-text').textContent = frame.reply;
-          $('#toast').hidden = false;
-          clearTimeout(window.__toastTimer);
-          window.__toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 6000);
-        }
-        break;
-      case 'patch.conflict':
-        latestDoc = frame.doc; latestHead = frame.head;
-        render(frame.doc);
-        $('#toast-text').textContent = '榜单有新版本，已同步最新状态';
-        $('#toast').hidden = false;
-        clearTimeout(window.__toastTimer);
-        window.__toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 5000);
-        break;
-      default:
-        break;
-    }
-  });
-  socket.addEventListener('close', () => {
-    $('#chat-send').disabled = false;               // 防按钮卡死
-    setTimeout(connectEditor, 1500);                // 断线重连 + 服务端 doc.full 恢复
-  });
-
-  $('#chat-send').addEventListener('click', () => {
-    const text = $('#chat-input').value.trim();
-    if (!text || socket.readyState !== WebSocket.OPEN) return;
-    $('#chat-input').value = '';
-    $('#chat-send').disabled = true;
-    socket.send(JSON.stringify({ type: 'chat', text }));
-  });
-  $('#chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#chat-send').click(); });
-  $('#toast-undo').addEventListener('click', () => {
-    if (undoTarget) socket.send(JSON.stringify({ type: 'revert', revisionId: undoTarget }));
-    $('#toast').hidden = true;
-  });
-}
-
-$('#export-json').addEventListener('click', () => {
-  if (!latestDoc) return;
-  const blob = new Blob([JSON.stringify(latestDoc, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${latestDoc.title || boardId}.json`;
-  a.click();
-});
-$('#export-html').addEventListener('click', async () => {
-  const res = await fetch(`/api/boards/${boardId}/export?format=html`, { headers: { 'X-Edit-Ref': editKey } });
-  if (!res.ok) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(await res.blob());
-  a.download = `${latestDoc?.title || boardId}.html`;
-  a.click();
-});
-
-/* ============================================================
-   编辑者添加条目：文字批量 / 图片保序上传，都编译为 addItem Patch
-   （与离线编辑器同一套入口语义：云端版进备选区，拖拽定档）
-   ============================================================ */
-function sendOps(ops, summary) {
-  if (!latestDoc || !latestHead || activeSocket?.readyState !== WebSocket.OPEN) return;
-  activeSocket.send(JSON.stringify({
-    type: 'patch',
-    patch: {
-      schemaVersion: 'patch.v1', boardId: latestDoc.id, baseRevision: latestHead,
-      ops, summary, author: { kind: 'web' },
-    },
-  }));
-}
-
-/* 文件名"像人话"才当名字（与离线编辑器同源启发式） */
+/* 文件名"像人话"才带入（含中文或短英文词），流水号一律不要 */
 function guessName(filename) {
   const base = filename.replace(/\.[^.]+$/, '').trim();
   if (!base || base.length > 14) return '';
-  if (/^(IMG|DSC|DCIM|Screenshot|Snipaste|WeChat|Pasted|image|photo|unknown|截屏|截图|微信图片)/i.test(base)) return '';
+  if (/^(IMG|DSC|DCIM|Screenshot|Snipaste|WeChat|Pasted|image|photo|截屏|截图|微信图片)/i.test(base)) return '';
   const meat = base.replace(/[\d_\-\s.()]/g, '');
-  return meat.length < 2 ? '' : base;
+  if (meat.length < 2) return '';
+  return base;
+}
+function refreshCard(el) { const n = buildCard(el.dataset.id); el.replaceWith(n); return n; }
+function addItem(text, image) {
+  const id = 'i' + (nextId++);
+  items.set(id, { text: text || '', image: image || null, note: '', color: null });
+  document.querySelector('.tier-items[data-tier="pool"]').appendChild(buildCard(id));
+  autosave();
 }
 
-$('#add-text-btn').addEventListener('click', () => {
-  $('#add-bar').hidden = false;
-  $('#add-input').focus();
+/* ============================================================
+   指针拖拽（鼠标 + 触屏统一）：移动即拖，原地轻点开操作单
+   ============================================================ */
+let drag = null;   // { id, el, ghost, started, sx, sy, hold }
+document.body.addEventListener('pointerdown', (e) => {
+  const card = e.target.closest('.card-item');
+  if (!card || e.button > 0) return;
+  drag = { id: card.dataset.id, el: card, ghost: null, started: false, sx: e.clientX, sy: e.clientY };
+  /* 长按（450ms 未拖动）＝ 轻点的同义词：打开同一张操作单 */
+  drag.hold = setTimeout(() => {
+    if (!drag || drag.started) return;
+    const el = drag.el; drag = null;
+    if (navigator.vibrate) navigator.vibrate(10);
+    openCardSheet(el);
+  }, 450);
 });
-function commitAddText() {
-  const raw = $('#add-input').value.trim();
-  $('#add-bar').hidden = true;
-  $('#add-input').value = '';
-  if (!raw) return;
-  const names = raw.split(/[,，、\n]+/).map((s) => s.trim()).filter(Boolean);
-  if (!names.length) return;
-  sendOps(
-    names.map((text) => ({ op: 'addItem', item: { text, image: null, note: '', color: null, evidence: [] }, target: { tier: 'pool' } })),
-    `添加 ${names.length} 个条目`,
-  );
-}
-$('#add-confirm').addEventListener('click', commitAddText);
-$('#add-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') commitAddText();
-  if (e.key === 'Escape') { $('#add-bar').hidden = true; $('#add-input').value = ''; }
-});
-
-$('#add-image-btn').addEventListener('click', () => $('#image-input').click());
-$('#image-input').addEventListener('change', async (e) => {
-  const files = [...e.target.files];
-  e.target.value = '';
-  if (!files.length || !editKey) return;
-  $('#add-image-btn').disabled = true;
-  try {
-    const prep = await (await fetch(`/api/boards/${boardId}/assets/prepare`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Edit-Ref': editKey },
-      body: JSON.stringify({ files: files.map((f) => ({ name: f.name, mime: f.type })) }),
-    })).json();
-    for (let i = 0; i < prep.assets.length; i += 1) {          // 串行，保上传序
-      await fetch(prep.assets[i].uploadUrl, { method: 'PUT', body: files[i] });
-    }
-    sendOps(
-      prep.assets.map((asset, i) => ({
-        op: 'addItem',
-        item: { text: guessName(files[i].name), image: { kind: 'asset', assetId: asset.assetId }, note: '', color: null, evidence: [] },
-        target: { tier: 'pool' },
-      })),
-      `上传 ${files.length} 张图片`,
-    );
-  } finally {
-    $('#add-image-btn').disabled = false;
+document.body.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) return;
+    clearTimeout(drag.hold);
+    drag.started = true;
+    const g = drag.el.cloneNode(true);
+    g.id = 'drag-ghost';
+    const r = drag.el.getBoundingClientRect();
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    document.body.appendChild(g);
+    drag.ghost = g;
+    drag.el.classList.add('drag-source');
+    if (navigator.vibrate) navigator.vibrate(8);
   }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX + 'px';
+  drag.ghost.style.top = e.clientY + 'px';
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tier-items');
+  if (zone) zone.classList.add('drag-over');
+});
+function endDrag(e, cancelled) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  clearTimeout(d.hold);
+  if (!d.started) { if (!cancelled) openCardSheet(d.el); return; }
+  d.ghost?.remove();
+  d.el.classList.remove('drag-source');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  if (cancelled) return;
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const zone = under?.closest('.tier-items');
+  if (!zone) return;
+  const targetCard = under?.closest('.card-item');
+  if (targetCard && targetCard !== d.el) zone.insertBefore(d.el, targetCard);
+  else zone.appendChild(d.el);
+  autosave();
+}
+document.body.addEventListener('pointerup', (e) => endDrag(e, false));
+document.body.addEventListener('pointercancel', (e) => endDrag(e, true));
+/* 右键（桌面端）＝ 轻点的同义词：打开同一张操作单 */
+document.body.addEventListener('contextmenu', (e) => {
+  const card = e.target.closest('.card-item');
+  if (!card) return;
+  e.preventDefault();
+  drag = null;
+  openCardSheet(card);
 });
 
 /* ============================================================
-   编辑者拖拽：手势 → BoardPatchV1（moveItem）
-   本地不做乐观更新，渲染交给服务端 doc.revision 回声；
-   过期 base → patch.conflict 帧采用服务端版
+   弹层系统：touch bar 的延伸面板
    ============================================================ */
-function enableDrag() {
-  const TIER_KEYS = ['hang', 'top', 'upper', 'npc', 'la'];
-  let drag = null;
+function closePanel() { $('#mask')?.remove(); $('#panel')?.remove(); }
+function openPanel(html) {
+  closePanel();
+  const mask = document.createElement('div'); mask.id = 'mask';
+  mask.addEventListener('pointerdown', closePanel);
+  const panel = document.createElement('div'); panel.id = 'panel';
+  panel.innerHTML = html;
+  document.body.append(mask, panel);
+  return panel;
+}
 
-  const zoneOf = (el) => {
-    const tierBox = el?.closest('.tier-items');
-    if (!tierBox) return null;
-    if (tierBox.id === 'pool-items') return { tier: 'pool', box: tierBox };
-    const rowIndex = [...document.querySelectorAll('#board .tier .tier-items')].indexOf(tierBox);
-    return rowIndex >= 0 ? { tier: TIER_KEYS[rowIndex], box: tierBox } : null;
+/* ---- ＋ 文字 ---- */
+function openTextPanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">添加文字</h3>
+    <input class="panel-control" type="text" id="p-text" aria-label="名称"
+           placeholder="输入名称，多个用逗号隔开" autocomplete="off">
+    <div class="panel-actions">
+      <button class="p-btn" id="p-text-cancel">取消</button>
+      <button class="p-btn dark" id="p-text-ok">添加</button>
+    </div>`);
+  const input = p.querySelector('#p-text');
+  input.focus();
+  const commit = () => {
+    const raw = input.value.trim();
+    if (!raw) return;
+    raw.split(/[,，、\n]+/).map(s => s.trim()).filter(Boolean).forEach(t => addItem(t, null));
+    closePanel();
   };
+  p.querySelector('#p-text-cancel').addEventListener('click', closePanel);
+  p.querySelector('#p-text-ok').addEventListener('click', commit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
+}
 
-  document.body.addEventListener('pointerdown', (e) => {
-    const cardEl = e.target.closest('.card-item');
-    if (!cardEl?.dataset.itemId || e.button > 0) return;
-    drag = { el: cardEl, sx: e.clientX, sy: e.clientY, started: false, ghost: null };
+/* ---- 导出图片：选比例即出图 ---- */
+function openExportPanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">导出图片</h3>
+    <div class="ratio-grid">
+      <button class="p-btn" data-ratio="3:4">3:4<small>竖图</small></button>
+      <button class="p-btn" data-ratio="4:3">4:3<small>横图</small></button>
+      <button class="p-btn" data-ratio="16:9">16:9<small>宽屏</small></button>
+    </div>`);
+  p.querySelectorAll('[data-ratio]').forEach(btn =>
+    btn.addEventListener('click', () => { closePanel(); exportPNG(btn.dataset.ratio); }));
+}
+
+/* ---- 底部声明：默认文案只填入，用户确认后再保存 ---- */
+function openFootnotePanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">底部声明</h3>
+    <p class="panel-subtitle">不填则不显示</p>
+    <textarea class="panel-control" id="p-ft" aria-label="底部声明"
+              placeholder="输入声明" autocomplete="off"></textarea>
+    <button class="p-btn tertiary" id="p-ft-def">使用默认文案</button>
+    <div class="panel-actions">
+      <button class="p-btn" id="p-ft-cancel">取消</button>
+      <button class="p-btn dark" id="p-ft-ok">保存</button>
+    </div>`);
+  const input = p.querySelector('#p-ft');
+  input.value = $('#board-footnote').textContent.trim();
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  const save = () => {
+    $('#board-footnote').textContent = input.value.replace(/\s+/g, ' ').trim();
+    autosave();
+    closePanel();
+  };
+  p.querySelector('#p-ft-def').addEventListener('click', () => {
+    input.value = DEFAULT_FOOTNOTE;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
   });
+  p.querySelector('#p-ft-cancel').addEventListener('click', closePanel);
+  p.querySelector('#p-ft-ok').addEventListener('click', save);
+}
 
-  document.body.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    if (!drag.started) {
-      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) return;
-      drag.started = true;
-      const ghost = drag.el.cloneNode(true);
-      ghost.id = 'drag-ghost';
-      const rect = drag.el.getBoundingClientRect();
-      ghost.style.width = `${rect.width}px`;
-      ghost.style.height = `${rect.height}px`;
-      document.body.appendChild(ghost);
-      drag.ghost = ghost;
-      drag.el.classList.add('drag-source');
+/* ---- ⋯ 更多 ---- */
+function openMorePanel() {
+  const p = openPanel(`
+    <h3 class="panel-title">更多</h3>
+    <button class="p-btn wide" data-m="save">导出榜单数据</button>
+    <button class="p-btn wide" data-m="load">导入榜单数据</button>
+    <button class="p-btn wide" data-m="foot">底部声明</button>
+    <button class="p-btn wide danger" data-m="reset">重置为初始数据</button>`);
+  p.addEventListener('click', async (e) => {
+    const m = e.target.dataset.m;
+    if (!m) return;
+    if (m === 'foot') { openFootnotePanel(); return; }
+    closePanel();
+    if (m === 'save') {
+      const data = serialize();
+      download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+               (data.title || 'hangtola') + '.json');
     }
-    e.preventDefault();
-    drag.ghost.style.left = `${e.clientX}px`;
-    drag.ghost.style.top = `${e.clientY}px`;
-    document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
-    zoneOf(document.elementFromPoint(e.clientX, e.clientY))?.box.classList.add('drag-over');
+    if (m === 'load') $('#json-input').click();
+    if (m === 'reset' && confirm('清除本地编辑，恢复为文件内嵌的初始数据？')) {
+      await removeSavedBoard(boardId);
+      /* 重放内嵌数据而非刷新页面：保留主题等状态，体验不断片。
+         applyData 对缺失字段是"保持不动"，故先归位标题与档位名默认值 */
+      $('#board-title').textContent = '';
+      TIER_DEFS.forEach(t => {
+        document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent = t.label;
+      });
+      let embedded = {};
+      try { embedded = JSON.parse($('#hangtola-data').textContent || '{}'); } catch (err) {}
+      applyData(embedded);
+    }
+  });
+}
+
+/* ---- 卡片操作单：定档 / 改名 / 删除（轻点、长按、右键同源） ---- */
+function openCardSheet(cardEl) {
+  const id = cardEl.dataset.id;
+  const it = items.get(id);
+  if (!it) return;
+  const currentTier = cardEl.closest('.tier-items')?.dataset.tier;
+  const chips = TIER_DEFS.map(t => {
+    const label = document.querySelector(`.tier-label[data-key="${t.key}"]`).textContent.trim() || t.label;
+    return `<button class="chip${t.key === currentTier ? ' now' : ''}" style="background:${t.color}" data-t="${t.key}">${escapeHtml(label)}</button>`;
+  }).join('') + `<button class="chip pool-chip${currentTier === 'pool' ? ' now' : ''}" data-t="pool">备选</button>`;
+  const dots = it.image ? '' : `<div class="color-dots">
+    <button class="dot auto${!it.color ? ' now' : ''}" data-col="" title="默认"></button>
+    ${CHIP_COLORS.map(c => `<button class="dot${it.color === c ? ' now' : ''}" style="background:${c}" data-col="${c}"></button>`).join('')}
+  </div>`;
+  const p = openPanel(`
+    <h3>${it.text ? escapeHtml(it.text) : '未命名条目'}</h3>
+    <div class="tier-chips">${chips}</div>
+    ${dots}
+    <button class="p-btn wide" data-c="rename">改名</button>
+    <button class="p-btn wide danger" data-c="del">删除</button>`);
+  p.addEventListener('click', (e) => {
+    if (e.target.dataset.col !== undefined) {
+      it.color = e.target.dataset.col || null;
+      autosave();
+      openCardSheet(refreshCard(cardEl));
+      return;
+    }
+    const t = e.target.dataset.t;
+    if (t && t !== currentTier) {
+      document.querySelector(`.tier-items[data-tier="${t}"]`).appendChild(cardEl);
+      autosave(); closePanel();
+      return;
+    }
+    const c = e.target.dataset.c;
+    if (!c) return;
+    if (c === 'del') { items.delete(id); cardEl.remove(); autosave(); closePanel(); }
+    if (c === 'rename') {
+      const q = openPanel(`
+        <h3 class="panel-title">修改名称</h3>
+        <input class="panel-control" type="text" id="p-rn" aria-label="名称"
+               placeholder="输入名称" autocomplete="off">
+        <div class="panel-actions">
+          <button class="p-btn" id="p-rn-cancel">取消</button>
+          <button class="p-btn dark" id="p-rn-ok">保存</button>
+        </div>`);
+      const inp = q.querySelector('#p-rn'); inp.value = it.text; inp.focus(); inp.select();
+      const ok = () => { it.text = inp.value.trim(); refreshCard(cardEl); autosave(); closePanel(); };
+      q.querySelector('#p-rn-cancel').addEventListener('click', closePanel);
+      q.querySelector('#p-rn-ok').addEventListener('click', ok);
+      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ok(); });
+    }
+  });
+}
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ---- 深浅色模式 ---- */
+let theme = localStorage.getItem('hangtola-theme') ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+function applyTheme(t) {
+  theme = t;
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('hangtola-theme', t);
+  $('#theme-btn').textContent = t === 'dark' ? '☀' : '☾';
+}
+
+/* ---- dock 分发 ---- */
+$('#dock').addEventListener('click', (e) => {
+  const act = e.target.closest('button')?.dataset.act;
+  if (act === 'text') openTextPanel();
+  if (act === 'image') $('#file-input').click();
+  if (act === 'export') openExportPanel();
+  if (act === 'theme') applyTheme(theme === 'dark' ? 'light' : 'dark');
+  if (act === 'more') openMorePanel();
+});
+
+/* ============================================================
+   图片入口：多选 / 拖入 / 粘贴；Promise.all 保证异步压缩后仍按输入顺序加入
+   ============================================================ */
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error(`无法解析图片：${file.name || '粘贴图片'}`));
+      img.onload = () => {
+        /* 保留原始比例，只压尺寸（长边 ≤512）；裁切交给显示层，数据不失真 */
+        const MAX = 512, cv = document.createElement('canvas');
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        cv.width = Math.max(1, Math.round(img.width * scale));
+        cv.height = Math.max(1, Math.round(img.height * scale));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        resolve(cv.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addImageFiles(fileList) {
+  const files = [...fileList].filter(file => file?.type?.startsWith('image/'));
+  if (!files.length) return;
+  try {
+    const prepared = await Promise.all(files.map(async file => ({
+      text: guessName(file.name || ''),
+      image: await readImageFile(file)
+    })));
+    prepared.forEach(item => addItem(item.text, item.image));
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+$('#file-input').addEventListener('change', async (e) => {
+  await addImageFiles(e.target.files);
+  e.target.value = '';
+});
+document.addEventListener('paste', async (e) => {
+  const files = [...e.clipboardData.items]
+    .filter(item => item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter(Boolean);
+  if (!files.length) return;
+  e.preventDefault();
+  await addImageFiles(files);
+});
+document.addEventListener('dragover', (e) => {
+  if (![...e.dataTransfer.types].includes('Files')) return;
+  e.preventDefault();
+  document.body.classList.add('file-over');
+});
+document.addEventListener('dragleave', (e) => {
+  if (!e.relatedTarget) document.body.classList.remove('file-over');
+});
+document.addEventListener('drop', async (e) => {
+  document.body.classList.remove('file-over');
+  const files = [...e.dataTransfer.files].filter(file => file.type.startsWith('image/'));
+  if (!files.length) return;
+  e.preventDefault();
+  await addImageFiles(files);
+});
+
+/* ============================================================
+   JSON 导入
+   ============================================================ */
+function download(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+$('#json-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  file.text().then(txt => {
+    try { applyData(JSON.parse(txt)); autosave(); }
+    catch (err) { alert('JSON 解析失败：' + err.message); }
+  });
+  e.target.value = '';
+});
+
+/* ============================================================
+   PNG 导出：干净所见即所得——淡蓝底 + 黑框网格，无水印
+   ============================================================ */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, maxWidth, maxLines) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    if (ctx.measureText(line + ch).width > maxWidth && line) {
+      lines.push(line); line = ch;
+      if (lines.length === maxLines) break;
+    } else line += ch;
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  else if (line && lines.length === maxLines) lines[maxLines - 1] = lines[maxLines - 1].slice(0, -1) + '…';
+  return lines;
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function fitTierLabel(ctx, text, maxWidth, rowHeight, frameScale, fontFamily) {
+  let fontSize = clampNumber(rowHeight * 0.18, 32 * frameScale, 52 * frameScale);
+  const minFontSize = 20 * frameScale;
+  while (fontSize > minFontSize) {
+    ctx.font = `800 ${fontSize}px ${fontFamily}`;
+    const lines = wrapText(ctx, text, maxWidth, 2);
+    const lineHeight = fontSize * 1.18;
+    const widestLine = Math.max(0, ...lines.map(line => ctx.measureText(line).width));
+    if (widestLine <= maxWidth && lines.length * lineHeight <= rowHeight - 24 * frameScale) {
+      return { fontSize, lines, lineHeight };
+    }
+    fontSize -= 0.5;
+  }
+  ctx.font = `800 ${minFontSize}px ${fontFamily}`;
+  return {
+    fontSize: minFontSize,
+    lines: wrapText(ctx, text, maxWidth, 2),
+    lineHeight: minFontSize * 1.18,
+  };
+}
+
+async function exportPNG(ratio) {
+  const data = serialize();
+  const T = THEMES[theme];
+  const [W, H] = RATIOS[ratio];
+  const u = W / 1600;                                   // 尺寸归一化单位
+  const frameScale = Math.min(W, H) / 1200;             // 画框与说明文字按短边保持光学密度
+  const FONT = '"PingFang SC","Microsoft YaHei",sans-serif';
+
+  /* 预载图片 */
+  const imgCache = new Map();
+  await Promise.all(data.tiers.flatMap(t => t.items).filter(it => it.image).map(it => new Promise(res => {
+    const im = new Image();
+    im.onload = () => { imgCache.set(it.image, im); res(); };
+    im.onerror = res;
+    im.src = it.image;
+  })));
+
+  /* 布局：统一槽位（方图 S + 名字行 capH），上下铺满、留白不算比例。
+     卡片参与铺满：槽位随缩放系数 k 变大/变小，二分求「卡片自然撑起的网格高度」
+     恰好逼近画幅可用高度的 k——卡片先长到刚好铺满，残差再均摊进行高；
+     k 有上下限（防空榜卡片巨大化 / 爆量时过碎），内容仍超高才退回整体缩小。 */
+  const pad = 56 * frameScale, bw = 4 * frameScale;     // 外边距 / 边框宽
+  const hasTitle = !!data.title;
+  const titleH = hasTitle ? 96 * frameScale : 0;
+  const footH = data.footnote ? 52 * frameScale : 0;    // 声明条：贴着网格底边的实心黑条
+  const gridW = W - pad * 2;
+  const labelMeasure = document.createElement('canvas').getContext('2d');
+  labelMeasure.font = `800 ${52 * frameScale}px ${FONT}`;
+  const measuredLabelW = Math.max(...data.tiers.map(t => labelMeasure.measureText(t.label).width)) + 48 * frameScale;
+  const labelW = Math.round(clampNumber(measuredLabelW, gridW * 0.15, gridW * 0.22));
+  const availH = H - pad * 2 - titleH - footH;
+  const layout = (kk) => {
+    const gap = 10 * u * kk, S = 150 * u * kk, capH = 32 * u * kk, slotH = S + capH;
+    const minRowH = slotH + gap * 2;
+    const perRow = Math.max(1, Math.floor((gridW - labelW - gap * 2) / (S + gap)));
+    const rowHeights = data.tiers.map(t => {
+      const rows = Math.max(1, Math.ceil(t.items.length / perRow));
+      return Math.max(minRowH, rows * (slotH + gap) + gap);
+    });
+    return { gap, S, capH, slotH, perRow, rowHeights, gridH: rowHeights.reduce((a, b) => a + b, 0) };
+  };
+  let lo = 0.55, hi = 2.2, k = 1;
+  for (let i = 0; i < 24; i++) {
+    k = (lo + hi) / 2;
+    if (layout(k).gridH > availH) hi = k; else lo = k;
+  }
+  k = lo;
+  const { gap, S, capH, slotH, perRow, rowHeights } = layout(k);
+  let gridH = rowHeights.reduce((a, b) => a + b, 0);
+  if (gridH < availH) {   // 二分残差与 k 触顶的富余：均摊进行高
+    const extra = (availH - gridH) / rowHeights.length;
+    for (let i = 0; i < rowHeights.length; i++) rowHeights[i] += extra;
+    gridH = availH;
+  }
+  const totalH = pad + titleH + gridH + footH + pad;
+  const scale = Math.min(1, H / totalH);
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  /* 背景不填充：PNG 透明底，贴到任何地方都干净 */
+  ctx.save();
+  ctx.translate((W - W * scale) / 2, (H - totalH * scale) / 2);
+  ctx.scale(scale, scale);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  /* 标题（留空则纯网格） */
+  if (hasTitle) {
+    ctx.fillStyle = T.ink;
+    ctx.font = `800 ${52 * frameScale}px ${FONT}`;
+    ctx.fillText(data.title, W / 2, pad + titleH / 2 - 12 * frameScale);
+  }
+
+  /* 网格主体 */
+  const gx = pad, gy = pad + titleH;
+  ctx.fillStyle = T.row;
+  ctx.fillRect(gx, gy, gridW, gridH);
+
+  let y = gy;
+  data.tiers.forEach((t, i) => {
+    const rh = rowHeights[i];
+    /* 档位色块 + 名称（黑字，色块本身够亮，两种模式通用） */
+    ctx.fillStyle = t.color;
+    ctx.fillRect(gx, y, labelW, rh);
+    ctx.fillStyle = '#111213';
+    const labelLayout = fitTierLabel(ctx, t.label, labelW - 24 * frameScale, rh, frameScale, FONT);
+    const ly0 = y + rh / 2 - (labelLayout.lines.length - 1) * labelLayout.lineHeight / 2;
+    labelLayout.lines.forEach((line, lineIndex) => {
+      ctx.fillText(line, gx + labelW / 2, ly0 + lineIndex * labelLayout.lineHeight);
+    });
+
+    /* 条目：统一竖版框。无名图＝铺满整框；有名图＝上图下名字条；文字＝色块撑满整框 */
+    t.items.forEach((it, j) => {
+      const col = j % perRow, row = Math.floor(j / perRow);
+      const x = gx + labelW + gap + col * (S + gap);
+      const iy = y + gap + row * (slotH + gap);
+      ctx.save();
+      roundRect(ctx, x, iy, S, slotH, 4 * u * k); ctx.clip();
+      if (it.image && imgCache.has(it.image)) {
+        const im = imgCache.get(it.image);
+        const areaH = it.text ? S : slotH;
+        const sc = Math.max(S / im.width, areaH / im.height);
+        ctx.drawImage(im, x + (S - im.width * sc) / 2, iy + (areaH - im.height * sc) / 2, im.width * sc, im.height * sc);
+        if (it.text) {
+          ctx.fillStyle = T.capBg;
+          ctx.fillRect(x, iy + S, S, capH);
+          ctx.fillStyle = T.ink;
+          ctx.font = `600 ${19 * u * k}px ${FONT}`;
+          ctx.fillText(wrapText(ctx, it.text, S - 10 * u * k, 1)[0] || '', x + S / 2, iy + S + capH / 2 + 1 * u);
+        }
+      } else {
+        const bg = it.color || T.chipBg;
+        ctx.fillStyle = bg;
+        ctx.fillRect(x, iy, S, slotH);
+        ctx.fillStyle = it.color ? (lum(it.color) > 0.62 ? '#111213' : '#ffffff') : T.chipInk;
+        const n = (it.text || '').length;
+        const cfs = (n <= 2 ? 36 : n <= 4 ? 29 : n <= 8 ? 23 : 19) * u * k;
+        ctx.font = `800 ${cfs}px ${FONT}`;
+        const lines = wrapText(ctx, it.text, S - 16 * u * k, 4);
+        const tlh = cfs * 1.25, ty0 = iy + slotH / 2 - (lines.length - 1) * tlh / 2;
+        lines.forEach((ln, k) => ctx.fillText(ln, x + S / 2, ty0 + k * tlh));
+      }
+      ctx.restore();
+      /* 统一细边框，贴近编辑器观感 */
+      ctx.strokeStyle = T.ring;
+      ctx.lineWidth = 1.2 * u;
+      roundRect(ctx, x, iy, S, slotH, 4 * u * k); ctx.stroke();
+    });
+    y += rh;
   });
 
-  const endDrag = (e, cancelled) => {
-    if (!drag) return;
-    const d = drag;
-    drag = null;
-    if (!d.started) return;
-    d.ghost?.remove();
-    d.el.classList.remove('drag-source');
-    document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
-    if (cancelled || !latestDoc || !latestHead || activeSocket?.readyState !== WebSocket.OPEN) return;
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const zone = zoneOf(under);
-    if (!zone) return;
-    const cards = [...zone.box.querySelectorAll('.card-item')].filter((el) => el !== d.el);
-    const targetCard = under.closest('.card-item');
-    const index = targetCard && targetCard !== d.el ? Math.max(0, cards.indexOf(targetCard)) : cards.length;
-    const tierLabel = zone.tier === 'pool'
-      ? '备选区'
-      : latestDoc.tiers[TIER_KEYS.indexOf(zone.tier)]?.label ?? zone.tier;
-    activeSocket.send(JSON.stringify({
+  /* 网格线：外框 + 行分隔 + 标签列分隔 */
+  ctx.strokeStyle = T.line;
+  ctx.lineWidth = bw;
+  ctx.strokeRect(gx, gy, gridW, gridH);
+  ctx.beginPath();
+  let ly = gy;
+  for (let i = 0; i < data.tiers.length - 1; i++) {
+    ly += rowHeights[i];
+    ctx.moveTo(gx, ly); ctx.lineTo(gx + gridW, ly);
+  }
+  ctx.moveTo(gx + labelW, gy); ctx.lineTo(gx + labelW, gy + gridH);
+  ctx.stroke();
+
+  /* 底部声明条：黑底白字，与外框咬合成表格的最后一行 */
+  if (data.footnote) {
+    const fy = gy + gridH;
+    ctx.fillStyle = T.line;
+    ctx.fillRect(gx - bw / 2, fy - bw / 2, gridW + bw, footH + bw / 2);
+    let ffs = 22 * frameScale;
+    ctx.font = `500 ${ffs}px ${FONT}`;
+    const maxW = gridW - 40 * frameScale, tw = ctx.measureText(data.footnote).width;
+    if (tw > maxW) ctx.font = `500 ${ffs * maxW / tw}px ${FONT}`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(data.footnote, gx + gridW / 2, fy + footH / 2 + 1 * frameScale);
+  }
+
+  ctx.restore();
+  cv.toBlob(b => download(b, `${data.title || 'hangtola'}-${ratio.replace(':', 'x')}.png`), 'image/png');
+}
+
+/* ============================================================
+   软键盘监听：visualViewport 收缩量即键盘高度，写入 --kb，
+   面板 bottom 用 max() 自动上浮，输入框不被键盘盖住
+   ============================================================ */
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const updateKb = () => {
+    const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  };
+  vv.addEventListener('resize', updateKb);
+  vv.addEventListener('scroll', updateKb);
+}
+
+/* ============================================================
+   启动
+   ============================================================ */
+applyTheme(theme);
+loadInitialData();
+</script>
+<script>
+/**
+ * [INPUT]: 依赖编辑器全局（applyData/serialize/items/autosave/openPanel/closePanel/escapeHtml/持久化三函数）与 ws 协议、资产上传 API
+ * [OUTPUT]: 对外提供云同步引擎：编辑器一切动作 diff 编译为 BoardPatchV1 经 ws 提交；回声全量渲染；dock 注入「智能改榜」；⋯ 面板注入分享/离线版
+ * [POS]: 云端榜单页 = 单机版编辑器 + 本适配器——UI 零分叉，只换持久化引擎；本地 IndexedDB 在云模式被整体短路
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+/* eslint-disable no-undef */
+(() => {
+  const boardId = location.pathname.split('/').filter(Boolean).pop();
+  const editKey = new URLSearchParams(location.hash.replace(/^#/, '')).get('k')
+    || localStorage.getItem(`hangtola-edit:${boardId}`);
+  if (editKey) localStorage.setItem(`hangtola-edit:${boardId}`, editKey);
+
+  /* ---- 云模式：本地持久化整体短路（在 loadInitialData 的首个 await 恢复前生效） ---- */
+  loadSavedBoard = async () => null;
+  persistBoard = async () => {};
+  removeSavedBoard = async () => {};
+
+  const TIERS = ['hang', 'top', 'upper', 'npc', 'la'];
+  let cloudDoc = null;           // 服务端 V2 真相
+  let head = null;
+  let socket = null;
+  let suppress = false;          // 应用回声期间不触发 diff
+  let syncTimer = null;
+  let undoTarget = null;
+
+  /* ============================================================
+     视图桥：V2 → 编辑器 legacy 形状；渲染后按序回贴 cid
+     ============================================================ */
+  const imageUrl = (image) => image === null ? null
+    : image.kind === 'dataurl' ? image.dataUrl : `/assets/${boardId}/${image.assetId}`;
+
+  function renderCloud(doc) {
+    suppress = true;
+    applyData({
+      id: doc.id,
+      title: doc.title,
+      footnote: doc.footnote,
+      savedAt: new Date(doc.savedAt).toISOString(),
+      dimensions: doc.dimensions,
+      tiers: doc.tiers.map((t) => ({
+        key: t.key, label: t.label, color: t.color,
+        items: t.items.map((it) => ({ text: it.text, image: imageUrl(it.image), note: it.note, color: it.color })),
+      })),
+      pool: doc.pool.map((it) => ({ text: it.text, image: imageUrl(it.image), note: it.note, color: it.color })),
+    });
+    /* applyData 按 tiers→pool 顺序建卡，与 doc 遍历同序：对位回贴 cid */
+    const lists = [...doc.tiers.map((t) => t.items), doc.pool];
+    const containers = [...TIERS, 'pool'].map((k) => document.querySelector(`.tier-items[data-tier="${k}"]`));
+    containers.forEach((container, i) => {
+      [...container.querySelectorAll('.card-item')].forEach((el, j) => {
+        el.dataset.cid = lists[i][j]?.id ?? '';
+      });
+    });
+    suppress = false;
+  }
+
+  /* ============================================================
+     diff 引擎：DOM 现状 vs cloudDoc → BoardPatchV1 ops
+     ============================================================ */
+  function readState() {
+    const buckets = {};
+    for (const key of [...TIERS, 'pool']) {
+      buckets[key] = [...document.querySelectorAll(`.tier-items[data-tier="${key}"] .card-item`)]
+        .map((el) => ({
+          cid: el.dataset.cid || null,
+          uploading: el.dataset.uploading === '1',
+          el,
+          content: items.get(el.dataset.id),
+        }))
+        .filter((c) => c.content);
+    }
+    return buckets;
+  }
+
+  function cloudIndex() {
+    const map = new Map();
+    cloudDoc.tiers.forEach((t) => t.items.forEach((it, i) => map.set(it.id, { tier: t.key, index: i, item: it })));
+    cloudDoc.pool.forEach((it, i) => map.set(it.id, { tier: 'pool', index: i, item: it }));
+    return map;
+  }
+
+  async function diffAndSend() {
+    if (!cloudDoc || !head || suppress || socket?.readyState !== WebSocket.OPEN) return;
+    const state = readState();
+    const known = cloudIndex();
+    const ops = [];
+
+    /* 新增：无 cid 的卡。图片卡先上传换 assetId（标记 uploading 防重入） */
+    for (const key of [...TIERS, 'pool']) {
+      for (let i = 0; i < state[key].length; i += 1) {
+        const card = state[key][i];
+        if (card.cid || card.uploading) continue;
+        let image = null;
+        if (card.content.image) {
+          card.el.dataset.uploading = '1';
+          try {
+            const prep = await (await fetch(`/api/boards/${boardId}/assets/prepare`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Edit-Ref': editKey },
+              body: JSON.stringify({ files: [{ name: `${card.content.text || '图片'}.png`, mime: (card.content.image.match(/^data:([^;]+)/) || [])[1] || 'image/png' }] }),
+            })).json();
+            const blob = await (await fetch(card.content.image)).blob();
+            await fetch(prep.assets[0].uploadUrl, { method: 'PUT', body: blob });
+            image = { kind: 'asset', assetId: prep.assets[0].assetId };
+          } finally {
+            delete card.el.dataset.uploading;
+          }
+        }
+        ops.push({
+          op: 'addItem',
+          item: { text: card.content.text, image, note: card.content.note || '', color: card.content.color, evidence: [] },
+          target: { tier: key, index: i },
+        });
+        card.el.dataset.cid = 'pending';       // 回声会重建映射；先防重复 add
+      }
+    }
+
+    /* 删除：cloud 有而 DOM 无 */
+    const present = new Set([...TIERS, 'pool'].flatMap((k) => state[k].map((c) => c.cid)));
+    for (const [cid] of known) {
+      if (!present.has(cid)) ops.push({ op: 'removeItem', itemId: cid });
+    }
+
+    /* 移动 + 内容更新（以 DOM 为准） */
+    for (const key of [...TIERS, 'pool']) {
+      const cids = state[key].filter((c) => c.cid && c.cid !== 'pending').map((c) => c.cid);
+      const cloudCids = key === 'pool'
+        ? cloudDoc.pool.map((it) => it.id)
+        : cloudDoc.tiers.find((t) => t.key === key).items.map((it) => it.id);
+      const orderChanged = cids.join() !== cloudCids.filter((id) => present.has(id)).join();
+      state[key].forEach((card, i) => {
+        if (!card.cid || card.cid === 'pending') return;
+        const was = known.get(card.cid);
+        if (!was) return;
+        if (orderChanged || was.tier !== key) {
+          ops.push({ op: 'moveItem', itemId: card.cid, to: { tier: key, index: i } });
+        }
+        const set = {};
+        if (card.content.text !== was.item.text) set.text = card.content.text;
+        if ((card.content.note || '') !== was.item.note) set.note = card.content.note || '';
+        if ((card.content.color ?? null) !== was.item.color) set.color = card.content.color ?? null;
+        if (Object.keys(set).length) ops.push({ op: 'updateItem', itemId: card.cid, set });
+      });
+    }
+
+    /* 元信息 */
+    const meta = {};
+    const title = document.querySelector('#board-title').textContent.trim();
+    const footnoteNow = document.querySelector('#board-footnote').textContent.trim();
+    if (title !== cloudDoc.title) meta.title = title;
+    if (footnoteNow !== cloudDoc.footnote) meta.footnote = footnoteNow;
+    const labels = {};
+    cloudDoc.tiers.forEach((t) => {
+      const label = document.querySelector(`.tier-label[data-key="${t.key}"]`)?.textContent.trim();
+      if (label && label !== t.label) labels[t.key] = label;
+    });
+    if (Object.keys(labels).length) meta.tierLabels = labels;
+    if (Object.keys(meta).length) ops.push({ op: 'setMeta', ...meta });
+
+    if (!ops.length) return;
+    socket.send(JSON.stringify({
       type: 'patch',
       patch: {
-        schemaVersion: 'patch.v1',
-        boardId: latestDoc.id,
-        baseRevision: latestHead,
-        ops: [{ op: 'moveItem', itemId: d.el.dataset.itemId, to: { tier: zone.tier, index } }],
-        summary: `把「${d.el.dataset.itemText || '条目'}」移到${tierLabel}`,
-        author: { kind: 'web' },
+        schemaVersion: 'patch.v1', boardId, baseRevision: head,
+        ops, summary: summarize(ops), author: { kind: 'web' },
       },
     }));
-  };
-  document.body.addEventListener('pointerup', (e) => endDrag(e, false));
-  document.body.addEventListener('pointercancel', (e) => endDrag(e, true));
-}
-
-/* ---- 启动 ---- */
-const snapshot = await pollPublic();
-if (snapshot) {
-  if (snapshot.generation.status === 'running') {
-    const timer = setInterval(async () => {
-      const s = await pollPublic();
-      if (!s || s.generation.status !== 'running') clearInterval(timer);
-    }, 800);
   }
-  if (editKey) { connectEditor(); enableDrag(); }
-  else setInterval(pollPublic, 3000);               // 围观者轻轮询
-}
+
+  function summarize(ops) {
+    const names = { addItem: '添加', removeItem: '删除', moveItem: '移动', updateItem: '修改', setMeta: '改信息', setDimensions: '改维度' };
+    const counts = {};
+    ops.forEach((op) => { counts[op.op] = (counts[op.op] || 0) + 1; });
+    return Object.entries(counts).map(([op, n]) => `${names[op] || op}${n > 1 ? `×${n}` : ''}`).join('、');
+  }
+
+  /* ---- 接管 autosave：编辑器一切动作从此进 diff 管线 ---- */
+  autosave = () => {
+    if (suppress) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { diffAndSend().catch(() => toast('同步失败，稍后自动重试')); }, 350);
+  };
+
+  /* ============================================================
+     轻量 toast（摘要 + 撤销）
+     ============================================================ */
+  const toastEl = document.createElement('div');
+  toastEl.id = 'cloud-toast';
+  toastEl.innerHTML = '<span id="cloud-toast-text"></span><button id="cloud-toast-undo">撤销</button>';
+  document.body.appendChild(toastEl);
+  toastEl.hidden = true;
+  let toastTimer = null;
+  function toast(text, withUndo = false) {
+    toastEl.querySelector('#cloud-toast-text').textContent = text;
+    toastEl.querySelector('#cloud-toast-undo').hidden = !withUndo;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, withUndo ? 8000 : 4000);
+  }
+  toastEl.querySelector('#cloud-toast-undo').addEventListener('click', () => {
+    if (undoTarget && socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'revert', revisionId: undoTarget }));
+    }
+    toastEl.hidden = true;
+  });
+
+  /* ============================================================
+     ws：auth → doc.full；回声全量渲染；冲突采服务端
+     ============================================================ */
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    socket = new WebSocket(`${proto}://${location.host}/agents/hangtola-agent/${boardId}`);
+    socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'auth', editRef: editKey })));
+    socket.addEventListener('message', (event) => {
+      let frame;
+      try { frame = JSON.parse(event.data); } catch { return; }
+      switch (frame.type) {
+        case 'auth.fail':
+          localStorage.removeItem(`hangtola-edit:${boardId}`);
+          enterViewerMode();
+          break;
+        case 'doc.full':
+          cloudDoc = frame.doc; head = frame.head;
+          renderCloud(cloudDoc);
+          break;
+        case 'doc.revision':
+          cloudDoc = frame.doc; head = frame.revision.id;
+          renderCloud(cloudDoc);
+          if (frame.revision.kind === 'patch' && frame.revision.parentId) {
+            undoTarget = frame.revision.parentId;
+            toast(frame.revision.summary, true);
+          }
+          break;
+        case 'patch.conflict':
+          cloudDoc = frame.doc; head = frame.head;
+          renderCloud(cloudDoc);
+          toast('榜单有新版本，已同步最新状态');
+          break;
+        case 'chat.done': {
+          const log = document.querySelector('#cloud-chat-log');
+          if (log) log.textContent = frame.reply;
+          const go = document.querySelector('#cloud-chat-go');
+          if (go) go.disabled = false;
+          if (frame.revisionId) closePanel();
+          break;
+        }
+        default:
+      }
+    });
+    socket.addEventListener('close', () => setTimeout(connect, 1500));
+  }
+
+  /* ============================================================
+     dock 注入「智能改榜」（面板复用编辑器样式系统）
+     ============================================================ */
+  function injectChatButton() {
+    const dock = document.querySelector('#dock');
+    if (!dock) return;
+    const btn = document.createElement('button');
+    btn.id = 'cloud-chat-btn';
+    btn.textContent = '智能改榜';
+    const exportBtn = dock.querySelector('[data-act="export"]');
+    dock.insertBefore(btn, exportBtn?.nextSibling ?? null);
+    btn.addEventListener('click', () => {
+      const panel = openPanel([
+        '<h3 class="panel-title">智能改榜</h3>',
+        '<p id="cloud-chat-log" class="cloud-chat-log">告诉 AI 想怎么改：移动、改名、改标题、加条目都行。</p>',
+        '<input type="text" id="cloud-chat-text" placeholder="把 A 移到夯、标题改成 XX…">',
+        '<div class="panel-actions">',
+        '  <button class="p-btn" id="cloud-chat-cancel">关闭</button>',
+        '  <button class="p-btn dark" id="cloud-chat-go">改榜</button>',
+        '</div>',
+      ].join(''));
+      panel.querySelector('#cloud-chat-cancel').addEventListener('click', closePanel);
+      const input = panel.querySelector('#cloud-chat-text');
+      input.focus();
+      const send = () => {
+        const text = input.value.trim();
+        if (!text || socket?.readyState !== WebSocket.OPEN) return;
+        input.value = '';
+        panel.querySelector('#cloud-chat-go').disabled = true;
+        panel.querySelector('#cloud-chat-log').textContent = '思考中…';
+        socket.send(JSON.stringify({ type: 'chat', text }));
+      };
+      panel.querySelector('#cloud-chat-go').addEventListener('click', send);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+    });
+  }
+
+  /* ---- ⋯ 面板注入：分享链接 / 下载离线版（观察 #panel 出现） ---- */
+  new MutationObserver(() => {
+    const panel = document.querySelector('#panel');
+    if (!panel || panel.dataset.cloudExtended) return;
+    if (![...panel.querySelectorAll('button')].some((b) => b.textContent.includes('导出榜单数据'))) return;
+    panel.dataset.cloudExtended = '1';
+    const share = document.createElement('button');
+    share.className = 'p-btn wide';
+    share.textContent = '复制分享链接（对方只读）';
+    share.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(`${location.origin}/b/${boardId}`);
+      share.textContent = '已复制分享链接';
+    });
+    const offline = document.createElement('button');
+    offline.className = 'p-btn wide';
+    offline.textContent = '下载离线版（单机编辑器 + 当前数据）';
+    offline.addEventListener('click', async () => {
+      const res = await fetch(`/api/boards/${boardId}/export?format=html`, { headers: { 'X-Edit-Ref': editKey } });
+      if (!res.ok) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await res.blob());
+      a.download = `hangtola-${boardId}.html`;
+      a.click();
+    });
+    const anchor = [...panel.querySelectorAll('button')].find((b) => b.textContent.includes('导出榜单数据'));
+    anchor?.before(share, offline);
+  }).observe(document.body, { childList: true });
+
+  /* ============================================================
+     围观模式：无编辑密钥 → 只读（隐藏 dock、锁交互、轮询跟新）
+     ============================================================ */
+  function enterViewerMode() {
+    document.body.classList.add('cloud-viewer');
+    const poll = async () => {
+      const snapshot = await (await fetch(`/api/boards/${boardId}`)).json();
+      if (snapshot.error) { document.querySelector('#board-title').textContent = '榜单不存在'; return; }
+      if (snapshot.publicDoc) {
+        suppress = true;
+        applyData({
+          id: snapshot.publicDoc.id,
+          title: snapshot.publicDoc.title,
+          footnote: snapshot.publicDoc.footnote,
+          savedAt: new Date().toISOString(),
+          dimensions: [],
+          tiers: snapshot.publicDoc.tiers,
+          pool: snapshot.publicDoc.pool,
+        });
+        suppress = false;
+      }
+      if (snapshot.generation?.status === 'running') {
+        toast(`${snapshot.generation.stage} ${snapshot.generation.pct}%`);
+      }
+    };
+    poll();
+    setInterval(poll, 3000);
+  }
+
+  /* ============================================================
+     启动
+     ============================================================ */
+  if (editKey) {
+    injectChatButton();
+    connect();
+    /* 直链进入生成中的榜单：轻轮询进度直至 done（ws 回声接管后自停） */
+    const genPoll = setInterval(async () => {
+      const snapshot = await (await fetch(`/api/boards/${boardId}`)).json();
+      const gen = snapshot.generation;
+      if (!gen || gen.status !== 'running') { clearInterval(genPoll); return; }
+      toast(`${gen.stage} ${gen.pct}%`);
+    }, 900);
+  } else {
+    enterViewerMode();
+  }
+})();
 </script>
 </body>
 </html>

@@ -50,10 +50,9 @@ writeFileSync(path.join(PUBLIC_DIR, 'ai.html'), hostedPage({
   body: readFileSync(path.join(ROOT, 'apps/web/src/hosted/home.html'), 'utf8'),
   scripts: ['home.js'],
 }));
-writeFileSync(path.join(PUBLIC_DIR, 'board.html'), hostedPage({
-  title: '夯到拉榜单',
-  body: readFileSync(path.join(ROOT, 'apps/web/src/hosted/board.html'), 'utf8'),
-  scripts: ['board.js'],
-}));
+/* 云端榜单页 = 完整编辑器 + 云适配器：UI 与单机版零分叉，只换持久化引擎 */
+const cloudHead = T('head.html').replace(/<title>[^<]*<\/title>/, '<title>夯到拉榜单</title>');
+writeFileSync(path.join(PUBLIC_DIR, 'board.html'),
+  `${cloudHead}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud.css'), 'utf8')}</style>\n${T('body.html')}<script>\n${T('editor.js')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud-adapter.js'), 'utf8')}</script>${T('tail.html')}`);
 copyFileSync(TEMPLATE_OUT, path.join(PUBLIC_DIR, 'template.html'));
 console.log('已产出 workers/hangtola/public/{index(单机版),ai,board,template}.html');

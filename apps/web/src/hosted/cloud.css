@@ -1,0 +1,28 @@
+/* ============================================================
+   云端榜单页附加样式：只加不改，视觉语言完全继承编辑器
+   ============================================================ */
+#cloud-toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(84px + var(--safe-b, 0px)); z-index: 260;
+  display: flex; gap: 10px; align-items: center;
+  background: var(--panel-bg); color: var(--ink); font-size: 14px;
+  padding: 10px 16px; border-radius: 14px;
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+#cloud-toast[hidden] { display: none; }
+#cloud-toast button {
+  border: none; background: none; color: var(--accent);
+  font-weight: 600; cursor: pointer; font-size: 14px; font-family: inherit; padding: 0;
+}
+.cloud-chat-log { font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 12px; }
+#cloud-chat-text {
+  width: 100%; border: 1px solid var(--input-bd); border-radius: 11px;
+  background: var(--input-bg); color: var(--ink);
+  font-size: 15px; font-family: inherit; padding: 11px 14px; outline: none;
+}
+#cloud-chat-text:focus { border-color: var(--accent-focus); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18); }
+/* 围观模式：只读 */
+.cloud-viewer #dock, .cloud-viewer #pool-section { display: none; }
+.cloud-viewer .card-item { pointer-events: none; }
+.cloud-viewer #board-title, .cloud-viewer #board-footnote, .cloud-viewer .tier-label { pointer-events: none; }
