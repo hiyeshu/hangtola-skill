@@ -12,9 +12,16 @@
   </div>
   <div class="board-actions">
     <a href="/" id="new-board">再排一个</a>
+    <button id="add-text-btn" hidden>＋ 文字</button>
+    <button id="add-image-btn" hidden>＋ 图片</button>
     <button id="export-html" hidden>下载离线版</button>
     <button id="export-json" hidden>导出数据 JSON</button>
   </div>
+</div>
+<input type="file" id="image-input" accept="image/*" multiple hidden>
+<div class="toast add-bar" id="add-bar" hidden>
+  <input id="add-input" placeholder="输入名称，支持逗号 / 顿号批量">
+  <button id="add-confirm">添加</button>
 </div>
 <div class="chat-dock" id="chat-dock" hidden>
   <input id="chat-input" placeholder="对榜单下指令：把 A 移到夯、改标题…">

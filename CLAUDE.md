@@ -39,6 +39,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - 云端榜单页补齐直接编辑入口（＋文字批量/＋图片保序上传→addItem Patch）；首页加单机版编辑器直达；生产密钥注入（用户授权），hangtola.app 真模型端到端验证通过。
 2026-08-06 - P6 收官：docs/geb/CONTEXT.md 六实体总图；README 四入口叙事；build-site 改为托管首页外壳注入器；Worker 更名 hangtola 携自定义域接管 hangtola.app（撤 assets-only 配置）；生产真模型 + R2 + secrets 上线。
 2026-08-06 - P5 落地 CLI 与 Remote MCP：hangtola 七命令（保序上传/409 退出码 2/本地渲染转投 skills 渲染器）；/mcp 无状态七工具薄封装 DO；MCP 六项 + CLI 全命令 e2e 通过。
 2026-08-06 - P4a 落地托管站点：模板降格为构建产物（五部件切分逐字节重组+零漂移门禁）；首页统一输入→保序上传→生成进度→跳转；榜单页围观轮询/编辑者 ws 实时+聊天改榜+摘要撤销+离线版导出；ws 鉴权迁入 connection state 修复休眠丢态。

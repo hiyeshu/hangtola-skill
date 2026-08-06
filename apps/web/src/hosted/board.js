@@ -116,6 +116,8 @@ function connectEditor() {
         $('#chat-dock').hidden = false;
         $('#export-html').hidden = false;
         $('#export-json').hidden = false;
+        $('#add-text-btn').hidden = false;
+        $('#add-image-btn').hidden = false;
         break;
       case 'auth.fail':
         localStorage.removeItem(`hangtola-edit:${boardId}`);
@@ -190,6 +192,80 @@ $('#export-html').addEventListener('click', async () => {
   a.href = URL.createObjectURL(await res.blob());
   a.download = `${latestDoc?.title || boardId}.html`;
   a.click();
+});
+
+/* ============================================================
+   编辑者添加条目：文字批量 / 图片保序上传，都编译为 addItem Patch
+   （与离线编辑器同一套入口语义：云端版进备选区，拖拽定档）
+   ============================================================ */
+function sendOps(ops, summary) {
+  if (!latestDoc || !latestHead || activeSocket?.readyState !== WebSocket.OPEN) return;
+  activeSocket.send(JSON.stringify({
+    type: 'patch',
+    patch: {
+      schemaVersion: 'patch.v1', boardId: latestDoc.id, baseRevision: latestHead,
+      ops, summary, author: { kind: 'web' },
+    },
+  }));
+}
+
+/* 文件名"像人话"才当名字（与离线编辑器同源启发式） */
+function guessName(filename) {
+  const base = filename.replace(/\.[^.]+$/, '').trim();
+  if (!base || base.length > 14) return '';
+  if (/^(IMG|DSC|DCIM|Screenshot|Snipaste|WeChat|Pasted|image|photo|unknown|截屏|截图|微信图片)/i.test(base)) return '';
+  const meat = base.replace(/[\d_\-\s.()]/g, '');
+  return meat.length < 2 ? '' : base;
+}
+
+$('#add-text-btn').addEventListener('click', () => {
+  $('#add-bar').hidden = false;
+  $('#add-input').focus();
+});
+function commitAddText() {
+  const raw = $('#add-input').value.trim();
+  $('#add-bar').hidden = true;
+  $('#add-input').value = '';
+  if (!raw) return;
+  const names = raw.split(/[,，、\n]+/).map((s) => s.trim()).filter(Boolean);
+  if (!names.length) return;
+  sendOps(
+    names.map((text) => ({ op: 'addItem', item: { text, image: null, note: '', color: null, evidence: [] }, target: { tier: 'pool' } })),
+    `添加 ${names.length} 个条目`,
+  );
+}
+$('#add-confirm').addEventListener('click', commitAddText);
+$('#add-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') commitAddText();
+  if (e.key === 'Escape') { $('#add-bar').hidden = true; $('#add-input').value = ''; }
+});
+
+$('#add-image-btn').addEventListener('click', () => $('#image-input').click());
+$('#image-input').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length || !editKey) return;
+  $('#add-image-btn').disabled = true;
+  try {
+    const prep = await (await fetch(`/api/boards/${boardId}/assets/prepare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Edit-Ref': editKey },
+      body: JSON.stringify({ files: files.map((f) => ({ name: f.name, mime: f.type })) }),
+    })).json();
+    for (let i = 0; i < prep.assets.length; i += 1) {          // 串行，保上传序
+      await fetch(prep.assets[i].uploadUrl, { method: 'PUT', body: files[i] });
+    }
+    sendOps(
+      prep.assets.map((asset, i) => ({
+        op: 'addItem',
+        item: { text: guessName(files[i].name), image: { kind: 'asset', assetId: asset.assetId }, note: '', color: null, evidence: [] },
+        target: { tier: 'pool' },
+      })),
+      `上传 ${files.length} 张图片`,
+    );
+  } finally {
+    $('#add-image-btn').disabled = false;
+  }
 });
 
 /* ============================================================

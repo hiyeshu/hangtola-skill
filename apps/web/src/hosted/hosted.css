@@ -57,3 +57,9 @@
   border: none; background: var(--panel-btn); color: var(--ink); text-decoration: none;
   font-size: 13px; font-family: inherit; padding: 9px 16px; border-radius: 999px; cursor: pointer;
 }
+.add-bar { width: min(420px, calc(100vw - 32px)); }
+.add-bar input {
+  flex: 1; border: 1px solid var(--input-bd); border-radius: 10px;
+  background: var(--input-bg); color: var(--ink);
+  font-size: 14px; font-family: inherit; padding: 8px 12px; outline: none;
+}

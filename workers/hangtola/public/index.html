@@ -327,6 +327,12 @@ body.file-over::after {
   border: none; background: var(--panel-btn); color: var(--ink); text-decoration: none;
   font-size: 13px; font-family: inherit; padding: 9px 16px; border-radius: 999px; cursor: pointer;
 }
+.add-bar { width: min(420px, calc(100vw - 32px)); }
+.add-bar input {
+  flex: 1; border: 1px solid var(--input-bd); border-radius: 10px;
+  background: var(--input-bg); color: var(--ink);
+  font-size: 14px; font-family: inherit; padding: 8px 12px; outline: none;
+}
 
 /* ============================================================
    部署站点外壳：不进入 Skill 模板与离线产物
@@ -381,6 +387,7 @@ body.file-over::after {
     <button class="gen-btn" id="go-btn">生成夯到拉</button>
   </div>
 </div>
+<p class="progress-card" style="margin-top:6px"><a href="/template.html" style="color:var(--dim);text-decoration:none;font-size:12px">更喜欢纯手排？打开单机版编辑器 →</a></p>
 <div class="progress-card" id="progress" hidden>
   <div class="progress-bar"><div id="progress-fill"></div></div>
   <span id="progress-stage">排队中</span>
