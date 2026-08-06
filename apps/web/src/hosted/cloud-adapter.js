@@ -262,7 +262,7 @@
     const poolCount = () =>
       document.querySelectorAll('.tier-items[data-tier="pool"] .card-item').length;
     aiBar = hangtolaAiBar.init({
-      placeholder: '对榜单下指令：把 A 移到夯、改标题…',
+      placeholder: '想怎么改，直接说',
       badge: poolCount,
       chips: () => {
         const n = poolCount();

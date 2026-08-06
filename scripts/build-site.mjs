@@ -93,7 +93,7 @@ const SITE_SCRIPT = `
 (() => {
   if (!globalThis.hangtolaAiBar) return;
   hangtolaAiBar.init({
-    placeholder: '想排什么？给个主题，回车开排',
+    placeholder: '想排什么，直接说',
     chips: () => [],
     onSubmit: (topic, api) => upgrade(topic, api),
   });

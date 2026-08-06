@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 agents 的 getAgentByName、@hangtola/domain 的 newBoardId 与 Env 绑定
- * [OUTPUT]: 对外提供 handleMcp：MCP streamable-HTTP（JSON-RPC）无状态处理器，七个工具全部薄封装 DO RPC
+ * [OUTPUT]: 对外提供 handleMcp：MCP streamable-HTTP（JSON-RPC）无状态处理器，八个工具全部薄封装 DO RPC（含 ingest_image_url 网图转资产）
  * [POS]: workers/hangtola 的外部 Agent 接口；自身零会话零状态，凭 boardId/editRef 路由到目标 DO
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { getAgentByName } from 'agents';
 import { newBoardId } from '@hangtola/domain';
 import type { Env } from '../env.js';
+import { ingestImageFromUrl } from '../http/ingest.js';
 
 interface JsonRpcRequest { jsonrpc: '2.0'; id?: number | string | null; method: string; params?: Record<string, unknown> }
 
@@ -41,6 +42,11 @@ const TOOLS = [
     name: 'prepare_asset_upload',
     description: '为远程客户端准备图片上传：返回每张图的一次性 uploadUrl（PUT 原始字节）。上传顺序即榜单输入顺序。',
     inputSchema: { type: 'object', properties: { boardId: { type: 'string' }, editRef: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, mime: { type: 'string' } }, required: ['name', 'mime'] } } }, required: ['boardId', 'editRef', 'files'] },
+  },
+  {
+    name: 'ingest_image_url',
+    description: '把网图 URL 转为榜单资产（服务器抓取校验：https、image/*、≤6MB）。返回 assetId；随后用 apply_board_patch 把 {"kind":"asset","assetId":...} 写进条目 image（addItem 或 updateItem）。禁止把外链 URL 直接写入文档。',
+    inputSchema: { type: 'object', properties: { boardId: { type: 'string' }, editRef: { type: 'string' }, url: { type: 'string' }, name: { type: 'string' } }, required: ['boardId', 'editRef', 'url'] },
   },
   {
     name: 'export_board',
@@ -107,6 +113,12 @@ async function callTool(env: Env, origin: string, name: string, args: Record<str
           uploadUrl: `${origin}/api/uploads/${str('boardId')}/${a.assetId}?token=${a.token}`,
         })),
       };
+    }
+    case 'ingest_image_url': {
+      const agent = await agentFor(str('boardId'));
+      const result = await ingestImageFromUrl(env, agent, str('editRef'), str('url'), args.name ? str('name') : undefined);
+      if (!result.ok) throw new Error(result.error);
+      return result;
     }
     case 'export_board': {
       const agent = await agentFor(str('boardId'));

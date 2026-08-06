@@ -12,6 +12,7 @@ import type { Env } from './env.js';
 import { HangtolaAgent } from './agent/hangtola-agent.js';
 import { GenerateBoardWorkflow } from './workflows/generate-board.js';
 import { handleMcp } from './mcp/tools.js';
+import { ingestImageFromUrl } from './http/ingest.js';
 
 export { HangtolaAgent, GenerateBoardWorkflow };
 
@@ -111,6 +112,18 @@ app.post('/api/boards/:id/assets/prepare', async (c) => {
       uploadUrl: `/api/uploads/${boardId}/${a.assetId}?token=${a.token}`,
     })),
   });
+});
+
+/* ---- 网图入境：URL 是来源不是存储——服务器抓取校验转 R2 资产 ---- */
+app.post('/api/boards/:id/assets/from-url', async (c) => {
+  const agent = await agentOf(c.env, c.req.param('id'));
+  const { url, name } = await c.req.json<{ url: string; name?: string }>();
+  const result = await ingestImageFromUrl(c.env, agent, editRef(c), url ?? '', name);
+  if (result.ok) return c.json(result, 201);
+  const status = result.error === 'bad-url' ? 400
+    : result.error === 'forbidden' ? 403
+    : result.error === 'ingest-failed' ? 500 : 422;
+  return c.json(result, status);
 });
 
 app.put('/api/uploads/:boardId/:assetId', async (c) => {

@@ -13,6 +13,7 @@ src/models/deepseek.ts: DeepSeek 边界（draftBoard 纯主题 / synthesizeBoard
 src/models/vision.ts: 通用视觉边界（VISION_* 三变量可换供应商，现 Qwen3.7-Flash @ 阿里 MaaS，json 模式+关思考），observe(dataUrl)→结构化观察；单次实测 3.4~5.1s 故设 25s abortSignal 止损；maxRetries=0 把重试权全交 Workflow step，杜绝 SDK×step 双层退避相乘（否则单图最坏 9 次调用）；MOCK 按文件名产出、unknown 前缀模拟失败
 src/models/exa.ts: Exa 调研边界；无 key/失败一律 insufficient（降级不臆造）；MOCK 名称含「冷门」触发 insufficient
 src/workflows/generate-board.ts: 可恢复生成管线 parse→vision每图一步→curate纯代码→evidence批次→synthesize→commit；识图 6 路并发（= Workers 同时等响应头的连接上限，非经验值），步名按资产下标固定保重放缓存确定性，结果按下标回填与 order_index 严格同构；MAX_VISION_BYTES 6MB 拦 MCP/API 直传的漏网原图，护住 128MB isolate；单图失败不倒全局；候选丢失代码补回 pool；enforceGrounding 押回强制名单；commit 幂等防重放
+src/http/ingest.ts: 网图入境执行器（URL 是来源不是存储）：抓取校验转 R2 资产，HTTP 路由与 MCP 工具共用
 src/mcp/tools.ts: Remote MCP（无状态 streamable-HTTP JSON-RPC）：七工具全部薄封装 DO RPC，零会话零独立逻辑；无 editRef 只见公开投影
 test/smoke.mjs: P2+P3 验收执行器——25 项行为断言（隐私投影/409/零revision/历史链/403/资产令牌/上传序/强制入pool/读透）
 
