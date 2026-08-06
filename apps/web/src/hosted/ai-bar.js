@@ -64,6 +64,8 @@
     };
 
     const open = () => {
+      /* 清场：任何编辑面板/遮罩让位，AI 条独占底部 */
+      if (typeof closePanel === 'function') closePanel();
       renderChips();
       document.body.classList.add('ai-bar-open');
       bar.hidden = false;

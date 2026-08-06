@@ -279,8 +279,31 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
     if (rows[0]?.status === 'done') return { ok: true, head: this.#headId()! };
     const boardId = this.#metaGet('board_id')!;
     const doc = draftToV2(draft, imageByText, { boardId, newItemId });
+
+    /* 合并语义：任意状态双方可介入——生成期间的人工痕迹不被整版覆盖。
+       base 中生成结果未涵盖的条目原档位保留；人工标题/声明/档位名优先 */
+    const base = this.#currentDoc();
+    const generatedTexts = new Set([
+      ...doc.tiers.flatMap((t) => t.items.map((i) => i.text)),
+      ...doc.pool.map((i) => i.text),
+    ]);
+    let kept = 0;
+    doc.tiers.forEach((tier, i) => {
+      tier.label = base.tiers[i]!.label;
+      for (const item of base.tiers[i]!.items) {
+        if (!generatedTexts.has(item.text)) { tier.items.push(item); kept += 1; }
+      }
+    });
+    for (const item of base.pool) {
+      if (!generatedTexts.has(item.text)) { doc.pool.push(item); kept += 1; }
+    }
+    if (!doc.title && base.title) doc.title = base.title;
+    if (base.footnote) doc.footnote = base.footnote;
+
     const head = this.#writeRevision({
-      kind: 'generate', doc, summary: '生成榜单', author: 'agent',
+      kind: 'generate', doc: BoardDocumentV2.parse(doc),
+      summary: kept ? `生成榜单（保留你新加的 ${kept} 个条目）` : '生成榜单',
+      author: 'agent',
     });
     this.sql`UPDATE tasks SET status = ${'done'}, updated_at = ${Date.now()} WHERE id = ${taskId}`;
     this.#setGeneration({ status: 'done', stage: '完成', pct: 100 });

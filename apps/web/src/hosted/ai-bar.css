@@ -18,7 +18,7 @@
   border-radius: 50%; background: #ff453a;
   box-shadow: 0 0 0 2px var(--page);
 }
-body.ai-bar-open #dock { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(0.96); }
+body.ai-bar-open #dock { opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(-50%) scale(0.96); }
 #ai-bar {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(16px + var(--safe-b, 0px)); z-index: 210;

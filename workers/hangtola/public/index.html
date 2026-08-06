@@ -314,7 +314,7 @@ body.file-over::after {
   border-radius: 50%; background: #ff453a;
   box-shadow: 0 0 0 2px var(--page);
 }
-body.ai-bar-open #dock { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(0.96); }
+body.ai-bar-open #dock { opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(-50%) scale(0.96); }
 #ai-bar {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(16px + var(--safe-b, 0px)); z-index: 210;
@@ -1291,6 +1291,8 @@ loadInitialData();
     };
 
     const open = () => {
+      /* 清场：任何编辑面板/遮罩让位，AI 条独占底部 */
+      if (typeof closePanel === 'function') closePanel();
       renderChips();
       document.body.classList.add('ai-bar-open');
       bar.hidden = false;
