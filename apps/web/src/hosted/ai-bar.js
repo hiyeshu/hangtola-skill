@@ -1,12 +1,17 @@
 /**
  * [INPUT]: 依赖编辑器 dock DOM（定位锚点）与页面注入的 --safe-b/--accent 设计变量
- * [OUTPUT]: 对外提供 window.hangtolaAiBar.init({placeholder, chips, onSubmit})：dock 右侧 ✨ 圆钮 + dock 原位变形 AI 输入条（palette 式：说完即走）
+ * [OUTPUT]: 对外提供 window.hangtolaAiBar.init({placeholder, chips, onSubmit})：dock 右侧 ✨ 圆钮 + dock 原位变形 AI 输入条（palette 式：说完即走），busy 态 ✨ 槽位就地转为盲文 spinner
  * [POS]: 单机版（升舱/主题生成）与云端版（改榜/排备选）共用的唯一 AI 召唤组件——零依赖，视觉语言完全继承 dock
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 /* eslint-disable no-undef */
 (() => {
+  /* 盲文 spinner：10 帧 / 80ms，帧序列取自 unicode-animations（MIT，cli-loaders 的帧数据源）。
+     不装那个包——它是 React 组件库，而本组件的立身之本是零依赖、可内联进单文件模板。 */
+  const SPIN_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  const SPIN_INTERVAL = 80;
+
   function init({ placeholder, chips, onSubmit, badge }) {
     const dock = document.querySelector('#dock');
     if (!dock) return null;
@@ -43,7 +48,28 @@
     document.body.appendChild(bar);
     const input = bar.querySelector('#ai-bar-input');
     const go = bar.querySelector('#ai-bar-go');
+    const spark = bar.querySelector('.ai-bar-spark');
     input.placeholder = placeholder;
+
+    /* ---- ✨ 槽位的第二形态：工作时就地转盲文 spinner，不新增任何 DOM ---- */
+    const calm = matchMedia('(prefers-reduced-motion: reduce)');
+    let spinTimer = null;
+    const spin = (on) => {
+      clearInterval(spinTimer);
+      spinTimer = null;
+      bar.setAttribute('aria-busy', on ? 'true' : 'false');
+      /* 降噪偏好下不转：placeholder 的阶段文案已经是无障碍的进度播报 */
+      if (!on || calm.matches) {
+        spark.textContent = '✨';
+        spark.classList.remove('is-spinning');
+        return;
+      }
+      spark.classList.add('is-spinning');
+      let i = 0;
+      const tick = () => { spark.textContent = SPIN_FRAMES[i++ % SPIN_FRAMES.length]; };
+      tick();
+      spinTimer = setInterval(tick, SPIN_INTERVAL);
+    };
 
     const renderChips = () => {
       const list = chips ? chips() : [];
@@ -76,6 +102,7 @@
       document.body.classList.remove('ai-bar-open');
       bar.hidden = true;
       fab.hidden = false;
+      spin(false);            /* 关条即停表，隐藏的输入条不留后台定时器 */
       input.disabled = false;
       go.disabled = false;
       input.value = '';
@@ -88,6 +115,7 @@
       const working = text !== null && text !== undefined;
       input.disabled = working;
       go.disabled = working;
+      spin(working);
       if (working) { input.value = ''; input.placeholder = text; }
       else input.placeholder = placeholder;
     };

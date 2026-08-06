@@ -43,6 +43,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - AI 等待态有了呼吸：ai-bar 的 ✨ 槽位在 busy 时就地转 10 帧盲文 spinner（帧序列内联自 unicode-animations MIT，不引 cli-loaders 的 React 包装），零新增 DOM、槽宽写死消抖、reduce-motion 停转、关条即停表。
 2026-08-06 - 回流入口补进榜单页：站点外壳注入抽为 injectShell，index 与 board 同注 GitHub + 复制 Skill（升舱脚本仍只进首页，榜单页自带云端 ai-bar）。README 去掉与 wrangler.toml 重复且已过期的密钥行（ARK_API_KEY 早已改名 VISION_API_KEY），Skill 章节不再自称「离线路径」——Skill 是 Agent 入口，离线只是它的产物形态。
 2026-08-06 - 成本与滥用防线：新增 limits.ts 收口全部运行时推导闸值（四处消费方共用，消除三处常量复制）；三档 IP 限流按成本量级设于建榜/模型/资产端点；直传上传补 Content-Length 先挡后读的双闸（此前无任何体积上限，与 from-url 的 6MB 闸不对称）；prepare 批量截断设于 DO 内；from-url 收紧为 https 单轨 + 私网字面量拒斥 + 声明值先挡。审计确认资产永不回收系不可变 revision 链的必然推论，非缺陷。
 2026-08-06 - 网图入境通道：HTTP /assets/from-url + MCP ingest_image_url（八工具），URL 即抓即转资产；AI 条占位语费曼化（想排什么/想怎么改，直接说）。

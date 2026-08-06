@@ -34,7 +34,16 @@
 @keyframes ai-bar-in { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.98); } }
 /* 输入条开启时 toast 再上一层，互不压盖 */
 body.ai-bar-open #cloud-toast { bottom: calc(146px + var(--safe-b, 0px)); }
-.ai-bar-spark { font-size: 16px; flex: 0 0 auto; }
+/* 宽度写死：✨ 与盲文字形宽度不等，不锁死则每次进出工作态整条抖一下 */
+.ai-bar-spark { font-size: 16px; flex: 0 0 20px; width: 20px; text-align: center; }
+/* 工作态：盲文字形交给等宽栈（系统 emoji 字体不保证覆盖 U+2800），并染成强调色 */
+.ai-bar-spark.is-spinning {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--accent);
+  /* 盲文点阵是细笔画：字号不抬到 20 就比旁边正文虚，"在干活"这个信号会被读丢。
+     line-height 锁 1，条高仍由 36px 按钮定，抬字号不撑高 */
+  font-size: 20px; line-height: 1;
+}
 #ai-bar-chips { display: flex; gap: 6px; flex: 0 0 auto; }
 #ai-bar-chips:empty { display: none; }
 .ai-bar-chip {
