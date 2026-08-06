@@ -97,6 +97,8 @@
     const api = { open, close, busy, say, refresh: renderChips };
 
     fab.addEventListener('click', open);
+    /* dock 与输入条共存：使用 dock（会弹面板/选择器）时输入条自动让位 */
+    dock.addEventListener('click', () => { if (!bar.hidden) close(); });
     bar.querySelector('#ai-bar-close').addEventListener('click', close);
     input.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     const submit = () => {

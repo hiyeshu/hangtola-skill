@@ -309,10 +309,9 @@ body.file-over::after {
   border-radius: 50%; background: #ff453a;
   box-shadow: 0 0 0 2px var(--page);
 }
-body.ai-bar-open #dock { opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(-50%) scale(0.96); }
 #ai-bar {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(16px + var(--safe-b, 0px)); z-index: 210;
+  bottom: calc(80px + var(--safe-b, 0px)); z-index: 210;   /* 悬于 dock 上方一层，不夺其位 */
   width: min(560px, calc(100vw - 28px));
   display: flex; align-items: center; gap: 8px;
   padding: 6px 6px 6px 16px; border-radius: 9999px;
@@ -323,6 +322,8 @@ body.ai-bar-open #dock { opacity: 0; visibility: hidden; pointer-events: none; t
   animation: ai-bar-in 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 @keyframes ai-bar-in { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.98); } }
+/* 输入条开启时 toast 再上一层，互不压盖 */
+body.ai-bar-open #cloud-toast { bottom: calc(146px + var(--safe-b, 0px)); }
 .ai-bar-spark { font-size: 16px; flex: 0 0 auto; }
 #ai-bar-chips { display: flex; gap: 6px; flex: 0 0 auto; }
 #ai-bar-chips:empty { display: none; }
@@ -1360,6 +1361,8 @@ globalThis.hangtolaShrinkImage = async function hangtolaShrinkImage(source) {
     const api = { open, close, busy, say, refresh: renderChips };
 
     fab.addEventListener('click', open);
+    /* dock 与输入条共存：使用 dock（会弹面板/选择器）时输入条自动让位 */
+    dock.addEventListener('click', () => { if (!bar.hidden) close(); });
     bar.querySelector('#ai-bar-close').addEventListener('click', close);
     input.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     const submit = () => {
