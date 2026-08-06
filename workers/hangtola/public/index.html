@@ -1226,6 +1226,30 @@ if (window.visualViewport) {
 applyTheme(theme);
 loadInitialData();
 </script>
+
+<script>
+(() => {
+  const button = document.querySelector('#copy-skill');
+  if (!button) return;
+  const label = button.querySelector('[data-copy-label]');
+  const installCommand = 'npx skills add hiyeshu/hangtola-skill --skill hangtola';
+  button.addEventListener('click', async () => {
+    button.classList.remove('is-copied', 'is-error');
+    try {
+      await navigator.clipboard.writeText(installCommand);
+      label.textContent = '已复制';
+      button.classList.add('is-copied');
+    } catch {
+      label.textContent = '复制失败';
+      button.classList.add('is-error');
+    }
+    setTimeout(() => {
+      label.textContent = '复制 Skill';
+      button.classList.remove('is-copied', 'is-error');
+    }, 1800);
+  });
+})();
+</script>
 <script>
 /**
  * [INPUT]: 依赖编辑器 dock DOM（定位锚点）与页面注入的 --safe-b/--accent 设计变量
@@ -1357,32 +1381,6 @@ loadInitialData();
 </script>
 
 <script>
-(() => {
-  const button = document.querySelector('#copy-skill');
-  if (!button) return;
-  const label = button.querySelector('[data-copy-label]');
-  const installCommand = 'npx skills add hiyeshu/hangtola-skill --skill hangtola';
-  button.addEventListener('click', async () => {
-    button.classList.remove('is-copied', 'is-error');
-    try {
-      await navigator.clipboard.writeText(installCommand);
-      label.textContent = '已复制';
-      button.classList.add('is-copied');
-    } catch {
-      label.textContent = '复制失败';
-      button.classList.add('is-error');
-    }
-    setTimeout(() => {
-      label.textContent = '复制 Skill';
-      button.classList.remove('is-copied', 'is-error');
-    }, 1800);
-  });
-})();
-
-/* ============================================================
-   AI 智能排（palette 式）：✨ 圆钮唤起输入条 → 升舱或纯主题生成
-   仅依赖编辑器全局 serialize 与 hangtolaAiBar 组件
-   ============================================================ */
 (() => {
   if (!globalThis.hangtolaAiBar) return;
   hangtolaAiBar.init({

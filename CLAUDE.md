@@ -18,7 +18,7 @@ skills/hangtola/package.json - 将公开 Skill 内 `.js` 显式限定为 ESM，�
 skills/hangtola/scripts/render-board.js - RedSkill 兼容的渲染 CLI，经 board-validate.gen.js 校验、嵌入本地图片并安全注入模板
 skills/hangtola/scripts/board-validate.gen.js - packages/domain 代码生成的零依赖契约镜像，禁手改，npm run codegen 再生
 packages/domain/ - 领域真相源（见其 L2 地图）：schema/迁移/patch/rank/标识 + codegen 桥 + 测试
-scripts/build-site.mjs - 部署适配器：驱动 apps/web 双目标构建，仅向托管首页注入 GitHub 图标与 Skill 复制控件
+scripts/build-site.mjs - 部署适配器：驱动 apps/web 双目标构建，向首页与榜单页同注 GitHub 图标与 Skill 复制，升舱脚本只进首页
 README.md - GitHub 与 skills.sh 用户入口、通用安装命令和开发说明
 package.json - workspaces 根与 check/build/test/typecheck/codegen/deploy 边界（deploy 指向 workers/hangtola/wrangler.toml）
 tsconfig.base.json - workspace 严格 TS 基线（ES2022 + bundler 解析）
@@ -37,12 +37,13 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 成本闸设在成本发生处并按量级分档：写端点零鉴权（editRef 由建榜免费铸出）是既定设计，故防线不是鉴权而是限流——建榜造永久 DO 实例、生成聊天烧模型真金、资产写入吃 R2，三者单价差两个数量级，同闸必然要么误伤要么失守。限流是挡脚本的第一道闸而非配额保证（per-colo 计数、官方明示非精确记账），真配额需账户体系或 Turnstile，属产品决策。
 资产只增不减是不可变 revision 链的必然推论而非疏漏：历史版本仍引用旧图，删图即毁 revert。故成本治理只能在入境侧（客户端压缩 + 体积闸 + 限流），不可在存量侧补删除。
 大图榜单用 IndexedDB 自动保存，localStorage 只保留旧数据与能力降级回退。
-模板离线自足，图片只能是本地路径或 data URL；部署外壳由根级脚本组合，禁止写回 Skill 模板。
+模板离线自足，图片只能是本地路径或 data URL；部署外壳由根级脚本组合，禁止写回 Skill 模板。外壳的边界是「托管页 vs Skill 产物」，不是「首页 vs 榜单页」——榜单页才是被生成、被分享、被围观的那一页，回流入口只留在首页等于留在没人到达的地方。
 导出画框按画布短边缩放；卡片按内容尺度铺满，档位文字从真实行高取 18% 并测量拟合，禁止再以画布宽度单独缩放。
 用户面板坚持动作优先的费曼文案；标题、输入与取消/确认分层，技术格式不得挤占主按钮，默认文案只填入不自动保存。
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - 回流入口补进榜单页：站点外壳注入抽为 injectShell，index 与 board 同注 GitHub + 复制 Skill（升舱脚本仍只进首页，榜单页自带云端 ai-bar）。README 去掉与 wrangler.toml 重复且已过期的密钥行（ARK_API_KEY 早已改名 VISION_API_KEY），Skill 章节不再自称「离线路径」——Skill 是 Agent 入口，离线只是它的产物形态。
 2026-08-06 - 成本与滥用防线：新增 limits.ts 收口全部运行时推导闸值（四处消费方共用，消除三处常量复制）；三档 IP 限流按成本量级设于建榜/模型/资产端点；直传上传补 Content-Length 先挡后读的双闸（此前无任何体积上限，与 from-url 的 6MB 闸不对称）；prepare 批量截断设于 DO 内；from-url 收紧为 https 单轨 + 私网字面量拒斥 + 声明值先挡。审计确认资产永不回收系不可变 revision 链的必然推论，非缺陷。
 2026-08-06 - 网图入境通道：HTTP /assets/from-url + MCP ingest_image_url（八工具），URL 即抓即转资产；AI 条占位语费曼化（想排什么/想怎么改，直接说）。
 2026-08-06 - AI 输入条改共存布局：悬于 dock 上方一层（不再变形替换），＋文字/＋图片/导出全程可用；使用 dock 时输入条自动让位，toast 随之上移一层。

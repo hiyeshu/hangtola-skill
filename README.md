@@ -11,7 +11,7 @@ Hangtola 同时是四样东西，共用一套领域规则：
 | 入口 | 给谁用 |
 |---|---|
 | 网站 hangtola.app | 普通用户：统一输入 → 实时进度 → 可拖拽榜单 + 聊天改榜 |
-| `$hangtola` Skill | Claude Code / Codex 等 Agent：离线生成独立 HTML |
+| `$hangtola` Skill | Claude Code / Codex 等 Agent：在本机排完，产出独立 HTML |
 | `hangtola` CLI | 终端与脚本：生成/修改/结构化操作/本地渲染 |
 | Remote MCP `hangtola.app/mcp` | 外部 Agent：七个工具操作同一块榜单 |
 
@@ -22,13 +22,13 @@ Hangtola 同时是四样东西，共用一套领域规则：
 - **匿名但有主**：公开 `viewUrl` 只见名称/图/档位；编辑密钥只在创建时出现一次（URL fragment 携带，服务端只存哈希），内部依据与对话仅编辑者可见。
 - **离线永远可用**：单文件编辑器（零依赖、双击即跑）是构建产物持续交付；云端榜单可随时导出为离线 HTML 或 JSON。
 
-## AI Skill（离线路径）
+## Agent Skill
 
 ```bash
 npx skills add hiyeshu/hangtola-skill --skill hangtola
 ```
 
-对 Agent 说「给 2026 的旗舰手机排个夯到拉」即可。维度与榜单记忆存于项目 `.hangtola/`；HTML 生成必须经 `skills/hangtola/scripts/render-board.js`（校验 schema、内嵌本地图片、安全注入）。
+装进 Claude Code、Codex、Cursor 等 Agent 后，直接说「给 2026 的旗舰手机排个夯到拉」。维度与榜单记忆存于项目 `.hangtola/`；HTML 生成必须经 `skills/hangtola/scripts/render-board.js`（校验 schema、内嵌本地图片、安全注入），产物是一份能双击打开的独立文件。
 
 ## CLI
 
@@ -69,5 +69,3 @@ npm run deploy   # 构建并部署 Cloudflare Worker（hangtola.app）
 cd workers/hangtola && npx wrangler dev    # 本地全功能（MOCK_MODELS=1 确定性模型桩）
 node workers/hangtola/test/smoke.mjs       # 25 项行为验收
 ```
-
-模型密钥经 `wrangler secret put DEEPSEEK_API_KEY / ARK_API_KEY / EXA_API_KEY` 注入，本地放 `workers/hangtola/.dev.vars`（git 忽略）。

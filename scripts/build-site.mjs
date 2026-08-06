@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 apps/web/build.mjs（离线模板重组 + 页面产出）与其 public/index.html（单机版编辑器主入口）
- * [OUTPUT]: 对外提供 npm run build：驱动 apps/web 构建，并仅向主入口注入 GitHub 图标、Skill 复制与 AI 输入条（✨ 圆钮唤起，升舱/纯主题生成）
+ * [OUTPUT]: 对外提供 npm run build：向两张托管页注入 GitHub 图标与 Skill 复制，并只向单机首页追加 AI 输入条（✨ 圆钮唤起，升舱/纯主题生成）
  * [POS]: 仓库级部署适配器——站点专属外壳只进 workers/hangtola/public，永不写回 Skill 模板与离线产物；升舱脚本只依赖编辑器全局 serialize 与共享 ai-bar 组件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const HOME_PATH = path.join(ROOT, 'workers/hangtola/public/index.html');
+const BOARD_PATH = path.join(ROOT, 'workers/hangtola/public/board.html');
 
 const built = spawnSync('node', ['apps/web/build.mjs'], { cwd: ROOT, stdio: 'inherit' });
 if (built.status !== 0) process.exit(built.status ?? 1);
@@ -62,7 +63,7 @@ const SITE_MARKUP = `
   </button>
 </nav>`;
 
-const SITE_SCRIPT = `
+const COPY_SCRIPT = `
 <script>
 (() => {
   const button = document.querySelector('#copy-skill');
@@ -85,11 +86,15 @@ const SITE_SCRIPT = `
     }, 1800);
   });
 })();
+</script>`;
 
 /* ============================================================
    AI 智能排（palette 式）：✨ 圆钮唤起输入条 → 升舱或纯主题生成
    仅依赖编辑器全局 serialize 与 hangtolaAiBar 组件
+   榜单页自带云端 ai-bar，故此段只进单机首页
    ============================================================ */
+const HOME_SCRIPT = `
+<script>
 (() => {
   if (!globalThis.hangtolaAiBar) return;
   hangtolaAiBar.init({
@@ -154,9 +159,18 @@ function insertOnce(source, marker, replacement, label) {
   return source.replace(marker, replacement);
 }
 
-let html = await readFile(HOME_PATH, 'utf8');
-html = insertOnce(html, '</style>', `${SITE_STYLES}\n${AI_BAR_CSS}\n</style>`, '站点样式');
-html = insertOnce(html, '<body>', `<body>${SITE_MARKUP}`, '站点导航');
-html = insertOnce(html, '</body>', `<script>\n${AI_BAR_JS}</script>\n${SITE_SCRIPT}\n</body>`, '站点交互');
-await writeFile(HOME_PATH, html);
-console.log('站点构建完成：workers/hangtola/public/index.html 已注入部署外壳（Skill 模板未修改）');
+/* 外壳进每一张托管页：榜单页才是被生成、被分享、被围观的那一页，回流入口不能只留在首页 */
+async function injectShell(target, { styles = '', scripts = '' } = {}) {
+  let html = await readFile(target, 'utf8');
+  html = insertOnce(html, '</style>', `${SITE_STYLES}${styles}\n</style>`, '站点样式');
+  html = insertOnce(html, '<body>', `<body>${SITE_MARKUP}`, '站点导航');
+  html = insertOnce(html, '</body>', `${COPY_SCRIPT}${scripts}\n</body>`, '站点交互');
+  await writeFile(target, html);
+}
+
+await injectShell(HOME_PATH, {
+  styles: `\n${AI_BAR_CSS}`,
+  scripts: `\n<script>\n${AI_BAR_JS}</script>\n${HOME_SCRIPT}`,
+});
+await injectShell(BOARD_PATH);
+console.log('站点构建完成：workers/hangtola/public/{index,board}.html 已注入部署外壳（Skill 模板未修改）');
