@@ -293,10 +293,73 @@ body.file-over::after {
 .site-meta-copy:active { transform: scale(0.97); }
 .site-meta-copy.is-copied { color: #248a3d; }
 .site-meta-copy.is-error { color: #ff3b30; }
-.site-meta-ai { background: var(--accent); color: #fff; }
-.site-meta-ai:hover { background: var(--accent-focus); color: #fff; }
-#panel .upgrade-note { font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 12px; }
-#panel .upgrade-stage { font-size: 13px; color: var(--accent); margin-top: 10px; min-height: 1.2em; }
+
+/* ============================================================
+   AI 召唤组件：✨ 圆钮 + dock 原位输入条（palette 式）
+   视觉语言完全继承 dock：玻璃、胶囊、Apple 缓动
+   ============================================================ */
+#ai-fab {
+  position: fixed; z-index: 200; width: 44px; height: 44px;
+  border: none; border-radius: 50%; cursor: pointer; font-size: 18px;
+  background: var(--glass); color: var(--ink);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04),
+              0 12px 32px rgba(0, 0, 0, 0.12);
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+#ai-fab:hover { transform: scale(1.08); }
+#ai-fab:active { transform: scale(0.96); }
+#ai-fab-badge {
+  position: absolute; top: 2px; right: 2px; width: 10px; height: 10px;
+  border-radius: 50%; background: #ff453a;
+  box-shadow: 0 0 0 2px var(--page);
+}
+body.ai-bar-open #dock { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(0.96); }
+#ai-bar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + var(--safe-b, 0px)); z-index: 210;
+  width: min(560px, calc(100vw - 28px));
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 6px 6px 16px; border-radius: 9999px;
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04),
+              0 12px 32px rgba(0, 0, 0, 0.12);
+  animation: ai-bar-in 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes ai-bar-in { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.98); } }
+.ai-bar-spark { font-size: 16px; flex: 0 0 auto; }
+#ai-bar-chips { display: flex; gap: 6px; flex: 0 0 auto; }
+#ai-bar-chips:empty { display: none; }
+.ai-bar-chip {
+  border: none; border-radius: 9999px; padding: 8px 12px; cursor: pointer;
+  background: var(--panel-btn); color: var(--accent);
+  font: 600 13px/1 inherit; font-family: inherit; white-space: nowrap;
+  transition: background 160ms ease;
+}
+.ai-bar-chip:hover { background: var(--panel-btn-h); }
+#ai-bar-input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  color: var(--ink); font-size: 15px; font-family: inherit; letter-spacing: -0.224px;
+}
+#ai-bar-input::placeholder { color: var(--dim); }
+#ai-bar-go {
+  flex: 0 0 auto; width: 36px; height: 36px; border: none; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: background 160ms ease;
+}
+#ai-bar-go:hover { background: var(--accent-focus); }
+#ai-bar-go:disabled { opacity: 0.4; cursor: default; }
+#ai-bar-close {
+  flex: 0 0 auto; width: 36px; height: 36px; border: none; border-radius: 50%;
+  background: transparent; color: var(--dim); font-size: 18px; cursor: pointer;
+}
+#ai-bar-close:hover { color: var(--ink); }
+@media (max-width: 640px) {
+  /* 窄屏 dock 几乎满宽：圆钮改悬浮于 dock 右上方，拇指可达 */
+  #ai-fab { left: auto !important; top: auto !important; right: 14px; bottom: calc(78px + var(--safe-b, 0px)); }
+}
+
 </style>
 </head>
 <body>
@@ -307,9 +370,6 @@ body.file-over::after {
       <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.28-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18a10.94 10.94 0 0 1 5.76 0c2.19-1.49 3.15-1.18 3.15-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.71 5.39-5.29 5.68.42.36.78 1.06.78 2.14v3.18c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"/>
     </svg>
   </a>
-  <button class="site-meta-copy site-meta-ai" id="ai-rank" type="button" title="让 AI 调研并定档">
-    ✨ AI 智能排
-  </button>
   <button class="site-meta-copy" id="copy-skill" type="button" title="复制 Skill 安装命令">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
       <rect x="8" y="8" width="11" height="11" rx="2"/>
@@ -1164,6 +1224,131 @@ if (window.visualViewport) {
 applyTheme(theme);
 loadInitialData();
 </script>
+<script>
+/**
+ * [INPUT]: 依赖编辑器 dock DOM（定位锚点）与页面注入的 --safe-b/--accent 设计变量
+ * [OUTPUT]: 对外提供 window.hangtolaAiBar.init({placeholder, chips, onSubmit})：dock 右侧 ✨ 圆钮 + dock 原位变形 AI 输入条（palette 式：说完即走）
+ * [POS]: 单机版（升舱/主题生成）与云端版（改榜/排备选）共用的唯一 AI 召唤组件——零依赖，视觉语言完全继承 dock
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+/* eslint-disable no-undef */
+(() => {
+  function init({ placeholder, chips, onSubmit, badge }) {
+    const dock = document.querySelector('#dock');
+    if (!dock) return null;
+
+    /* ---- ✨ 圆钮：贴着 dock 右侧，同一悬浮语言 ---- */
+    const fab = document.createElement('button');
+    fab.id = 'ai-fab';
+    fab.type = 'button';
+    fab.setAttribute('aria-label', 'AI');
+    fab.innerHTML = '✨<span id="ai-fab-badge" hidden></span>';
+    document.body.appendChild(fab);
+
+    const place = () => {
+      const rect = dock.getBoundingClientRect();
+      fab.style.left = `${rect.right + 10}px`;
+      fab.style.top = `${rect.top + (rect.height - 44) / 2}px`;
+    };
+    requestAnimationFrame(place);
+    addEventListener('resize', place);
+    /* dock 尺寸随字体/内容变化：观察一次布局稳定 */
+    setTimeout(place, 300);
+
+    /* ---- 输入条：dock 原位的第二形态 ---- */
+    const bar = document.createElement('div');
+    bar.id = 'ai-bar';
+    bar.hidden = true;
+    bar.innerHTML = [
+      '<span class="ai-bar-spark">✨</span>',
+      '<div id="ai-bar-chips"></div>',
+      '<input type="text" id="ai-bar-input" autocomplete="off">',
+      '<button type="button" id="ai-bar-go" aria-label="发送">↑</button>',
+      '<button type="button" id="ai-bar-close" aria-label="关闭">×</button>',
+    ].join('');
+    document.body.appendChild(bar);
+    const input = bar.querySelector('#ai-bar-input');
+    const go = bar.querySelector('#ai-bar-go');
+    input.placeholder = placeholder;
+
+    const renderChips = () => {
+      const list = chips ? chips() : [];
+      const wrap = bar.querySelector('#ai-bar-chips');
+      wrap.innerHTML = '';
+      for (const chip of list) {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'ai-bar-chip';
+        el.textContent = chip.label;
+        el.addEventListener('click', () => chip.onClick(api));
+        wrap.appendChild(el);
+      }
+      const badgeEl = fab.querySelector('#ai-fab-badge');
+      const count = badge ? badge() : list.length;
+      badgeEl.hidden = !count;
+      requestAnimationFrame(place);
+    };
+
+    const open = () => {
+      renderChips();
+      document.body.classList.add('ai-bar-open');
+      bar.hidden = false;
+      fab.hidden = true;
+      input.focus();
+    };
+    const close = () => {
+      document.body.classList.remove('ai-bar-open');
+      bar.hidden = true;
+      fab.hidden = false;
+      input.disabled = false;
+      go.disabled = false;
+      input.value = '';
+      input.placeholder = placeholder;
+      renderChips();
+      requestAnimationFrame(place);
+    };
+    /** busy(text)：进入工作态并播报阶段；busy(null)：回到可输入态 */
+    const busy = (text) => {
+      const working = text !== null && text !== undefined;
+      input.disabled = working;
+      go.disabled = working;
+      if (working) { input.value = ''; input.placeholder = text; }
+      else input.placeholder = placeholder;
+    };
+    /** say(text)：非阻塞提示（婉拒等），保持可输入 */
+    const say = (text) => { busy(null); input.placeholder = text; };
+
+    const api = { open, close, busy, say, refresh: renderChips };
+
+    fab.addEventListener('click', open);
+    bar.querySelector('#ai-bar-close').addEventListener('click', close);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    const submit = () => {
+      const text = input.value.trim();
+      if (!text || input.disabled) return;
+      onSubmit(text, api);
+    };
+    go.addEventListener('click', submit);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    /* 快捷键 /：随处唤起（输入场景除外） */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey
+          && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')
+          && document.activeElement?.contentEditable !== 'true'
+          && bar.hidden) {
+        e.preventDefault();
+        open();
+      }
+    });
+
+    renderChips();
+    return api;
+  }
+
+  globalThis.hangtolaAiBar = { init };
+})();
+</script>
 
 <script>
 (() => {
@@ -1189,42 +1374,24 @@ loadInitialData();
 })();
 
 /* ============================================================
-   AI 智能排：本地条目升舱（图片上云 → Agent 调研定档 → 云端榜单）
-   仅依赖编辑器全局 serialize/openPanel/closePanel/escapeHtml
+   AI 智能排（palette 式）：✨ 圆钮唤起输入条 → 升舱或纯主题生成
+   仅依赖编辑器全局 serialize 与 hangtolaAiBar 组件
    ============================================================ */
 (() => {
-  const button = document.querySelector('#ai-rank');
-  if (!button) return;
-
-  button.addEventListener('click', () => {
-    const data = serialize();
-    const items = [...data.tiers.flatMap((t) => t.items), ...data.pool];
-    const imageCount = items.filter((it) => it.image).length;
-    const note = items.length === 0
-      ? '还没放条目也行：给个主题，AI 自己找候选、查资料、定档。'
-      : '把当前 ' + items.length + ' 个条目交给 AI：查资料、定维度、重新定档' +
-        (imageCount ? '（' + imageCount + ' 张图会上云）' : '') + '。排完可继续拖拽和对话修改。';
-    const panel = openPanel([
-      '<h3 class="panel-title">AI 智能排</h3>',
-      '<p class="upgrade-note">' + note + '</p>',
-      '<input type="text" id="up-topic" placeholder="主题，比如：2026 旗舰手机" value="' + escapeHtml(data.title || '') + '">',
-      '<p class="upgrade-stage" id="up-stage"></p>',
-      '<div class="panel-actions">',
-      '  <button class="p-btn" id="up-cancel">取消</button>',
-      '  <button class="p-btn dark" id="up-go">开始智能排</button>',
-      '</div>',
-    ].join(''));
-    panel.querySelector('#up-cancel').addEventListener('click', closePanel);
-    panel.querySelector('#up-go').addEventListener('click', () => upgrade(panel, data, items));
+  if (!globalThis.hangtolaAiBar) return;
+  hangtolaAiBar.init({
+    placeholder: '想排什么？给个主题，回车开排',
+    chips: () => [],
+    onSubmit: (topic, api) => upgrade(topic, api),
   });
 
-  async function upgrade(panel, data, items) {
-    const topic = panel.querySelector('#up-topic').value.trim();
-    const stage = (text) => { panel.querySelector('#up-stage').textContent = text; };
-    if (!topic) { stage('先给个主题，AI 才知道去查什么'); return; }
-    panel.querySelector('#up-go').disabled = true;
+  async function upgrade(topic, api) {
+    const data = serialize();
+    const items = [...data.tiers.flatMap((t) => t.items), ...data.pool];
     try {
-      stage('创建云端榜单…');
+      api.busy(items.length
+        ? '带着 ' + items.length + ' 个条目升舱…'
+        : 'AI 找候选中…');
       const board = await (await fetch('/api/boards', { method: 'POST' })).json();
       localStorage.setItem('hangtola-edit:' + board.boardId, board.editRef);
       const auth = { 'X-Edit-Ref': board.editRef, 'Content-Type': 'application/json' };
@@ -1239,7 +1406,7 @@ loadInitialData();
           method: 'POST', headers: auth, body: JSON.stringify({ files }),
         })).json();
         for (let i = 0; i < prep.assets.length; i += 1) {
-          stage('上传图片 ' + (i + 1) + '/' + withImages.length + '…');
+          api.busy('上传图片 ' + (i + 1) + '/' + withImages.length + '…');
           const blob = await (await fetch(withImages[i].image)).blob();
           await fetch(prep.assets[i].uploadUrl, { method: 'PUT', body: blob });
         }
@@ -1248,21 +1415,20 @@ loadInitialData();
       const extraText = items.map((it) => it.text).filter(Boolean).join('、');
       await fetch('/api/boards/' + board.boardId + '/generate', {
         method: 'POST', headers: auth,
-        body: JSON.stringify(Object.assign({ topic }, extraText ? { extraText } : {})),
+        body: JSON.stringify(Object.assign({ topic: topic }, extraText ? { extraText } : {})),
       });
       for (;;) {
         const snapshot = await (await fetch('/api/boards/' + board.boardId)).json();
         const gen = snapshot.generation;
         if (gen.status === 'done') break;
         if (gen.status === 'failed') throw new Error(gen.detail || '生成失败');
-        stage((gen.stage || '生成中') + ' ' + gen.pct + '%');
+        api.busy((gen.stage || '生成中') + ' ' + gen.pct + '%');
         await new Promise((r) => setTimeout(r, 700));
       }
-      stage('完成，正在打开云端榜单…');
+      api.busy('完成，正在打开云端榜单…');
       location.href = '/b/' + board.boardId + '#k=' + board.editRef;
     } catch (error) {
-      stage('出错了：' + (error && error.message ? error.message : error));
-      panel.querySelector('#up-go').disabled = false;
+      api.say('出错了：' + (error && error.message ? error.message : error) + '，回车重试');
     }
   }
 })();

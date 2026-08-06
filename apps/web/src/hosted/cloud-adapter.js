@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖编辑器全局（applyData/serialize/items/autosave/openPanel/closePanel/escapeHtml/持久化三函数）与 ws 协议、资产上传 API
- * [OUTPUT]: 对外提供云同步引擎：编辑器一切动作 diff 编译为 BoardPatchV1 经 ws 提交；回声全量渲染；dock 注入「智能改榜」；⋯ 面板注入分享/离线版
+ * [OUTPUT]: 对外提供云同步引擎：编辑器一切动作 diff 编译为 BoardPatchV1 经 ws 提交；回声全量渲染；AI 输入条（✨ 圆钮/斜杠唤起：指令改榜 + 一键排备选，徽标提示）；⋯ 面板注入分享/离线版
  * [POS]: 云端榜单页 = 单机版编辑器 + 本适配器——UI 零分叉，只换持久化引擎；本地 IndexedDB 在云模式被整体短路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,7 @@
   let suppress = false;          // 应用回声期间不触发 diff
   let syncTimer = null;
   let undoTarget = null;
+  let aiBar = null;
 
   /* ============================================================
      视图桥：V2 → 编辑器 legacy 形状；渲染后按序回贴 cid
@@ -231,6 +232,7 @@
         case 'doc.revision':
           cloudDoc = frame.doc; head = frame.revision.id;
           renderCloud(cloudDoc);
+          aiBar?.refresh();
           if (frame.revision.kind === 'patch' && frame.revision.parentId) {
             undoTarget = frame.revision.parentId;
             toast(frame.revision.summary, true);
@@ -242,11 +244,8 @@
           toast('榜单有新版本，已同步最新状态');
           break;
         case 'chat.done': {
-          const log = document.querySelector('#cloud-chat-log');
-          if (log) log.textContent = frame.reply;
-          const go = document.querySelector('#cloud-chat-go');
-          if (go) go.disabled = false;
-          if (frame.revisionId) closePanel();
+          if (frame.revisionId) { aiBar?.close(); toast(frame.reply || '已改好', !!undoTarget); }
+          else aiBar?.say(frame.reply || '没改成，换个说法试试？');
           break;
         }
         default:
@@ -256,48 +255,31 @@
   }
 
   /* ============================================================
-     dock 注入「智能改榜」（面板复用编辑器样式系统）
+     AI 输入条（palette 式）：✨ 圆钮唤起 → 指令改榜 / 一键排备选
      ============================================================ */
-  function injectChatButton() {
-    const dock = document.querySelector('#dock');
-    if (!dock) return;
-    const btn = document.createElement('button');
-    btn.id = 'cloud-chat-btn';
-    btn.textContent = '智能改榜';
-    const exportBtn = dock.querySelector('[data-act="export"]');
-    dock.insertBefore(btn, exportBtn?.nextSibling ?? null);
-    btn.addEventListener('click', () => {
-      const poolCount = document.querySelectorAll('.tier-items[data-tier="pool"] .card-item').length;
-      const panel = openPanel([
-        '<h3 class="panel-title">智能改榜</h3>',
-        poolCount ? `<button class="p-btn dark wide" id="cloud-rank-pool">✨ 把备选区 ${poolCount} 个条目排进榜单</button>` : '',
-        '<p id="cloud-chat-log" class="cloud-chat-log">告诉 AI 想怎么改：移动、改名、改标题、加条目都行。</p>',
-        '<input type="text" id="cloud-chat-text" placeholder="把 A 移到夯、标题改成 XX…">',
-        '<div class="panel-actions">',
-        '  <button class="p-btn" id="cloud-chat-cancel">关闭</button>',
-        '  <button class="p-btn dark" id="cloud-chat-go">改榜</button>',
-        '</div>',
-      ].join(''));
-      panel.querySelector('#cloud-rank-pool')?.addEventListener('click', (e) => {
-        if (socket?.readyState !== WebSocket.OPEN) return;
-        e.target.disabled = true;
-        e.target.textContent = 'AI 正在识图、查资料、定档…';
-        panel.querySelector('#cloud-chat-log').textContent = '新条目会补齐调研再入档，稍等。';
-        socket.send(JSON.stringify({ type: 'rankPool' }));
-      });
-      panel.querySelector('#cloud-chat-cancel').addEventListener('click', closePanel);
-      const input = panel.querySelector('#cloud-chat-text');
-      input.focus();
-      const send = () => {
-        const text = input.value.trim();
-        if (!text || socket?.readyState !== WebSocket.OPEN) return;
-        input.value = '';
-        panel.querySelector('#cloud-chat-go').disabled = true;
-        panel.querySelector('#cloud-chat-log').textContent = '思考中…';
+  function initAiBar() {
+    if (!globalThis.hangtolaAiBar) return;
+    const poolCount = () =>
+      document.querySelectorAll('.tier-items[data-tier="pool"] .card-item').length;
+    aiBar = hangtolaAiBar.init({
+      placeholder: '对榜单下指令：把 A 移到夯、改标题…',
+      badge: poolCount,
+      chips: () => {
+        const n = poolCount();
+        return n ? [{
+          label: `✨ 排备选 ${n}`,
+          onClick: (api) => {
+            if (socket?.readyState !== WebSocket.OPEN) return;
+            api.busy('AI 正在识图、查资料、给备选定档…');
+            socket.send(JSON.stringify({ type: 'rankPool' }));
+          },
+        }] : [];
+      },
+      onSubmit: (text, api) => {
+        if (socket?.readyState !== WebSocket.OPEN) { api.say('连接断了，正在重连…'); return; }
+        api.busy('思考中…');
         socket.send(JSON.stringify({ type: 'chat', text }));
-      };
-      panel.querySelector('#cloud-chat-go').addEventListener('click', send);
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+      },
     });
   }
 
@@ -362,7 +344,7 @@
      启动
      ============================================================ */
   if (editKey) {
-    injectChatButton();
+    initAiBar();
     connect();
     /* 直链进入生成中的榜单：轻轮询进度直至 done（ws 回声接管后自停） */
     const genPoll = setInterval(async () => {

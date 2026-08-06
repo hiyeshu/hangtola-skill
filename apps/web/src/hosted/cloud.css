@@ -15,15 +15,7 @@
   border: none; background: none; color: var(--accent);
   font-weight: 600; cursor: pointer; font-size: 14px; font-family: inherit; padding: 0;
 }
-.cloud-chat-log { font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 12px; }
-#cloud-chat-text {
-  width: 100%; border: 1px solid var(--input-bd); border-radius: 11px;
-  background: var(--input-bg); color: var(--ink);
-  font-size: 15px; font-family: inherit; padding: 11px 14px; outline: none;
-}
-#cloud-chat-text:focus { border-color: var(--accent-focus); box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18); }
 /* 围观模式：只读 */
 .cloud-viewer #dock, .cloud-viewer #pool-section { display: none; }
 .cloud-viewer .card-item { pointer-events: none; }
 .cloud-viewer #board-title, .cloud-viewer #board-footnote, .cloud-viewer .tier-label { pointer-events: none; }
-#cloud-rank-pool { margin-bottom: 12px; }

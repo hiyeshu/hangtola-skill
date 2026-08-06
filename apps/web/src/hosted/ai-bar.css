@@ -1,0 +1,65 @@
+/* ============================================================
+   AI 召唤组件：✨ 圆钮 + dock 原位输入条（palette 式）
+   视觉语言完全继承 dock：玻璃、胶囊、Apple 缓动
+   ============================================================ */
+#ai-fab {
+  position: fixed; z-index: 200; width: 44px; height: 44px;
+  border: none; border-radius: 50%; cursor: pointer; font-size: 18px;
+  background: var(--glass); color: var(--ink);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04),
+              0 12px 32px rgba(0, 0, 0, 0.12);
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+#ai-fab:hover { transform: scale(1.08); }
+#ai-fab:active { transform: scale(0.96); }
+#ai-fab-badge {
+  position: absolute; top: 2px; right: 2px; width: 10px; height: 10px;
+  border-radius: 50%; background: #ff453a;
+  box-shadow: 0 0 0 2px var(--page);
+}
+body.ai-bar-open #dock { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(0.96); }
+#ai-bar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + var(--safe-b, 0px)); z-index: 210;
+  width: min(560px, calc(100vw - 28px));
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 6px 6px 16px; border-radius: 9999px;
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04),
+              0 12px 32px rgba(0, 0, 0, 0.12);
+  animation: ai-bar-in 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes ai-bar-in { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.98); } }
+.ai-bar-spark { font-size: 16px; flex: 0 0 auto; }
+#ai-bar-chips { display: flex; gap: 6px; flex: 0 0 auto; }
+#ai-bar-chips:empty { display: none; }
+.ai-bar-chip {
+  border: none; border-radius: 9999px; padding: 8px 12px; cursor: pointer;
+  background: var(--panel-btn); color: var(--accent);
+  font: 600 13px/1 inherit; font-family: inherit; white-space: nowrap;
+  transition: background 160ms ease;
+}
+.ai-bar-chip:hover { background: var(--panel-btn-h); }
+#ai-bar-input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  color: var(--ink); font-size: 15px; font-family: inherit; letter-spacing: -0.224px;
+}
+#ai-bar-input::placeholder { color: var(--dim); }
+#ai-bar-go {
+  flex: 0 0 auto; width: 36px; height: 36px; border: none; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: background 160ms ease;
+}
+#ai-bar-go:hover { background: var(--accent-focus); }
+#ai-bar-go:disabled { opacity: 0.4; cursor: default; }
+#ai-bar-close {
+  flex: 0 0 auto; width: 36px; height: 36px; border: none; border-radius: 50%;
+  background: transparent; color: var(--dim); font-size: 18px; cursor: pointer;
+}
+#ai-bar-close:hover { color: var(--ink); }
+@media (max-width: 640px) {
+  /* 窄屏 dock 几乎满宽：圆钮改悬浮于 dock 右上方，拇指可达 */
+  #ai-fab { left: auto !important; top: auto !important; right: 14px; bottom: calc(78px + var(--safe-b, 0px)); }
+}

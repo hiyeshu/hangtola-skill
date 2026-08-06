@@ -41,6 +41,6 @@ writeFileSync(path.join(PUBLIC_DIR, 'index.html'), offline);
 /* 云端榜单页 = 完整编辑器 + 云适配器：UI 与单机版零分叉，只换持久化引擎 */
 const cloudHead = T('head.html').replace(/<title>[^<]*<\/title>/, '<title>夯到拉榜单</title>');
 writeFileSync(path.join(PUBLIC_DIR, 'board.html'),
-  `${cloudHead}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud.css'), 'utf8')}</style>\n${T('body.html')}<script>\n${T('editor.js')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/image-shrink.js'), 'utf8')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud-adapter.js'), 'utf8')}</script>${T('tail.html')}`);
+  `${cloudHead}<style>\n${T('styles.css')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud.css'), 'utf8')}${readFileSync(path.join(ROOT, 'apps/web/src/hosted/ai-bar.css'), 'utf8')}</style>\n${T('body.html')}<script>\n${T('editor.js')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/image-shrink.js'), 'utf8')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/ai-bar.js'), 'utf8')}</script>\n<script>\n${readFileSync(path.join(ROOT, 'apps/web/src/hosted/cloud-adapter.js'), 'utf8')}</script>${T('tail.html')}`);
 copyFileSync(TEMPLATE_OUT, path.join(PUBLIC_DIR, 'template.html'));
 console.log('已产出 workers/hangtola/public/{index(单机版),board,template}.html');
