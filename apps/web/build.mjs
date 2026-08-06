@@ -43,8 +43,10 @@ writeFileSync(TEMPLATE_OUT, offline);
 console.log('已重组 skills/hangtola/assets/template.html');
 
 mkdirSync(PUBLIC_DIR, { recursive: true });
-writeFileSync(path.join(PUBLIC_DIR, 'index.html'), hostedPage({
-  title: '夯到拉 Hangtola — 万物皆可排',
+/* 主入口 = 单机版完整编辑器（build-site.mjs 再注入站点外壳与智能排入口） */
+writeFileSync(path.join(PUBLIC_DIR, 'index.html'), offline);
+writeFileSync(path.join(PUBLIC_DIR, 'ai.html'), hostedPage({
+  title: 'AI 智能排 — 夯到拉 Hangtola',
   body: readFileSync(path.join(ROOT, 'apps/web/src/hosted/home.html'), 'utf8'),
   scripts: ['home.js'],
 }));
@@ -54,4 +56,4 @@ writeFileSync(path.join(PUBLIC_DIR, 'board.html'), hostedPage({
   scripts: ['board.js'],
 }));
 copyFileSync(TEMPLATE_OUT, path.join(PUBLIC_DIR, 'template.html'));
-console.log('已产出 workers/hangtola/public/{index,board,template}.html');
+console.log('已产出 workers/hangtola/public/{index(单机版),ai,board,template}.html');

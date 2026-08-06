@@ -172,6 +172,12 @@ app.get('/api/boards/:id/export', async (c) => {
   });
 });
 
+/* ---- AI 智能排入口页 ---- */
+app.get('/ai', async (c) => {
+  const page = await c.env.STATIC.fetch(new URL('/ai.html', c.req.url));
+  return new Response(page.body, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+});
+
 /* ---- 榜单页：/b/:id 服务托管榜单外壳 ---- */
 app.get('/b/:id', async (c) => {
   const page = await c.env.STATIC.fetch(new URL('/board.html', c.req.url));

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ai（generateObject）、@ai-sdk/openai-compatible（火山方舟端点）与 @hangtola/domain 的 VisionObservation
+ * [INPUT]: 依赖 ai（generateObject）与 @ai-sdk/openai-compatible（任意 openai 兼容视觉端点，当前阿里 MaaS Qwen 3.7 Flash）
  * [OUTPUT]: 对外提供 createVisionClient：observe(dataUrl, hint) → 结构化识图；MOCK 桩按文件名确定性产出/失败
- * [POS]: workers/hangtola 的识图边界，Seed 2.0 Lite 只面向此接口；失败由上层降级（入 pool），不臆造
+ * [POS]: workers/hangtola 的识图边界，供应商可换（VISION_* 三变量）；失败由上层降级（入 pool），不臆造
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -11,9 +11,9 @@ import { z } from 'zod';
 
 export interface VisionEnv {
   MOCK_MODELS?: string;
-  ARK_API_KEY?: string;
-  ARK_BASE_URL?: string;
-  ARK_MODEL?: string;
+  VISION_API_KEY?: string;
+  VISION_BASE_URL?: string;
+  VISION_MODEL?: string;
 }
 
 const ObservationSchema = z.object({
@@ -31,15 +31,17 @@ export interface VisionClient {
 
 function realClient(env: VisionEnv): VisionClient {
   const provider = createOpenAICompatible({
-    name: 'ark',
-    baseURL: env.ARK_BASE_URL ?? 'https://ark.cn-beijing.volces.com/api/v3',
-    apiKey: env.ARK_API_KEY ?? '',
+    name: 'vision',
+    baseURL: env.VISION_BASE_URL ?? '',
+    apiKey: env.VISION_API_KEY ?? '',
   });
-  const model = provider(env.ARK_MODEL ?? 'doubao-seed-2-0-lite');
+  const model = provider(env.VISION_MODEL ?? 'qwen3.7-flash');
   return {
     async observe(imageDataUrl, hint) {
       const { object } = await generateObject({
         model,
+        mode: 'json',
+        providerOptions: { vision: { enable_thinking: false } },
         schema: ObservationSchema,
         messages: [{
           role: 'user',
@@ -82,6 +84,6 @@ function mockClient(): VisionClient {
 }
 
 export function createVisionClient(env: VisionEnv): VisionClient {
-  if (env.MOCK_MODELS === '1' || !env.ARK_API_KEY) return mockClient();
+  if (env.MOCK_MODELS === '1' || !env.VISION_API_KEY || !env.VISION_BASE_URL) return mockClient();
   return realClient(env);
 }

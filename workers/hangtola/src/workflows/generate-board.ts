@@ -9,7 +9,7 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloud
 import { getAgentByName } from 'agents';
 import { enforceGrounding, type DraftShape } from '@hangtola/domain';
 import type { Env } from '../env.js';
-import { createVisionClient, type Observation } from '../models/seed-vision.js';
+import { createVisionClient, type Observation } from '../models/vision.js';
 import { createSearchClient } from '../models/exa.js';
 import { createModelClient, type Candidate } from '../models/deepseek.js';
 
@@ -75,9 +75,14 @@ export class GenerateBoardWorkflow extends WorkflowEntrypoint<Env, GenerateParam
         for (const obs of observations) {
           if (obs.failed || obs.confidence < 0.5 || obs.candidates.length === 0) {
             const clue = obs.failed ? '' : (obs.ocr[0] ?? obs.description);
-            const name = clue.trim()
+            let name = clue.trim()
               ? `待确认：${clue.trim().slice(0, 12)}`
               : `未识别图片 ${(unknownCount += 1)}`;
+            if (imageByText[name] !== undefined) {
+              let suffix = 2;
+              while (imageByText[`${name} ${suffix}`] !== undefined) suffix += 1;
+              name = `${name} ${suffix}`;
+            }
             forcePool.push(name);
             imageByText[name] = obs.assetId;
             candidates.push({
@@ -87,7 +92,12 @@ export class GenerateBoardWorkflow extends WorkflowEntrypoint<Env, GenerateParam
               evidence: 'insufficient',
             });
           } else {
-            const name = obs.candidates[0]!.name;
+            let name = obs.candidates[0]!.name;
+            if (imageByText[name] !== undefined) {          // 同名图片各归其图，禁止后者覆盖前者
+              let suffix = 2;
+              while (imageByText[`${name} ${suffix}`] !== undefined) suffix += 1;
+              name = `${name} ${suffix}`;
+            }
             imageByText[name] = obs.assetId;
             candidates.push({ text: name, note: obs.description, hasImage: true, evidence: '' });
           }

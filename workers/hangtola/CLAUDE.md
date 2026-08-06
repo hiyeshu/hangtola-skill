@@ -10,7 +10,7 @@ src/env.ts: Env 绑定契约（DO 命名空间 + 模型环境变量）唯一出�
 src/agent/hangtola-agent.ts: DO 本体。#commit 是全部修改的唯一写入路径（校验 baseRevision → applyPatch → 写 revision → 广播）；revert 写新版本不改历史；chatRpc 模型编译失败零 revision；generateRpc 建任务并点火 Workflow；reportProgress/commitGenerated(幂等)/failTask 为 Workflow 回调面（仅 Worker 内 RPC 可达）；prepareAssets 发一次性上传令牌（哈希落盘）、verifyAssetUpload/markAssetUploaded/listUploadedAssets 守资产态；ws 帧 auth/patch/chat/revert/resync，未认证只收 State 同步；鉴权态存 connection state（跨 DO 休眠持久），广播按连接态收窄
 src/agent/sql.ts: 存储契约——meta/revisions/conversation/tasks/assets 建表 DDL 与行类型；assets 按 order_index 保上传序
 src/models/deepseek.ts: DeepSeek 边界（draftBoard 纯主题 / synthesizeBoard 候选定档 / reviseOps NL→ops），结构化输出修复一次仍败即放弃；MOCK 桩确定性可预言
-src/models/seed-vision.ts: Seed 2.0 Lite 识图边界（方舟 openai 兼容），observe(dataUrl)→结构化观察；MOCK 按文件名产出、unknown 前缀模拟失败
+src/models/vision.ts: 通用视觉边界（VISION_* 三变量可换供应商，现 Qwen3.7-Flash @ 阿里 MaaS，json 模式+关思考），observe(dataUrl)→结构化观察；MOCK 按文件名产出、unknown 前缀模拟失败
 src/models/exa.ts: Exa 调研边界；无 key/失败一律 insufficient（降级不臆造）；MOCK 名称含「冷门」触发 insufficient
 src/workflows/generate-board.ts: 可恢复生成管线 parse→vision每图一步→curate纯代码→evidence批次→synthesize→commit；单图失败不倒全局；候选丢失代码补回 pool；enforceGrounding 押回强制名单；commit 幂等防重放
 src/mcp/tools.ts: Remote MCP（无状态 streamable-HTTP JSON-RPC）：七工具全部薄封装 DO RPC，零会话零独立逻辑；无 editRef 只见公开投影

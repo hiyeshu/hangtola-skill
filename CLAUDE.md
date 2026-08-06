@@ -39,6 +39,7 @@ HTML 生成必须经过 render-board.js，禁止 Agent 手工拼 base64 或替�
 维度与榜单记忆落在使用方项目 `.hangtola/`，不进入本仓库。
 
 变更日志:
+2026-08-06 - 产品反转：hangtola.app 默认单机版编辑器，「AI 智能排」升舱入口带本地条目上云重排；Agent 输入页迁 /ai。视觉切 Qwen3.7-Flash（阿里 MaaS，约 ¥0.001/张），DeepSeek 保持官方；修同名图片候选覆盖。
 2026-08-06 - 云端榜单页补齐直接编辑入口（＋文字批量/＋图片保序上传→addItem Patch）；首页加单机版编辑器直达；生产密钥注入（用户授权），hangtola.app 真模型端到端验证通过。
 2026-08-06 - P6 收官：docs/geb/CONTEXT.md 六实体总图；README 四入口叙事；build-site 改为托管首页外壳注入器；Worker 更名 hangtola 携自定义域接管 hangtola.app（撤 assets-only 配置）；生产真模型 + R2 + secrets 上线。
 2026-08-06 - P5 落地 CLI 与 Remote MCP：hangtola 七命令（保序上传/409 退出码 2/本地渲染转投 skills 渲染器）；/mcp 无状态七工具薄封装 DO；MCP 六项 + CLI 全命令 e2e 通过。

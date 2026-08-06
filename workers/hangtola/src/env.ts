@@ -7,7 +7,7 @@
 
 import type { HangtolaAgent } from './agent/hangtola-agent.js';
 import type { WorkerEnv } from './models/deepseek.js';
-import type { VisionEnv } from './models/seed-vision.js';
+import type { VisionEnv } from './models/vision.js';
 import type { SearchEnv } from './models/exa.js';
 
 export interface Env extends WorkerEnv, VisionEnv, SearchEnv {
