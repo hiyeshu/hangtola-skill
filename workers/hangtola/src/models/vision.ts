@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 ai（generateObject）与 @ai-sdk/openai-compatible（任意 openai 兼容视觉端点，当前阿里 MaaS Qwen 3.7 Flash）
+ * [INPUT]: 依赖 ai（generateObject）、@ai-sdk/openai-compatible（任意 openai 兼容视觉端点，当前阿里 MaaS Qwen 3.7 Flash）与 ../limits 的止损值
  * [OUTPUT]: 对外提供 createVisionClient：observe(dataUrl, hint) → 结构化识图，25s 超时即止损；MOCK 桩按文件名确定性产出/失败
  * [POS]: workers/hangtola 的识图边界，供应商可换（VISION_* 三变量）；失败由上层降级（入 pool），不臆造。
  *        重试权不在此层：maxRetries=0 交给 Workflow step 独家退避，避免双层重试相乘
@@ -9,6 +9,7 @@
 import { generateObject } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { z } from 'zod';
+import { VISION_TIMEOUT_MS } from '../limits.js';
 
 export interface VisionEnv {
   MOCK_MODELS?: string;
@@ -26,7 +27,6 @@ const ObservationSchema = z.object({
 });
 export type Observation = z.infer<typeof ObservationSchema>;
 
-const VISION_TIMEOUT_MS = 25_000;
 
 export interface VisionClient {
   observe(imageDataUrl: string, hint: string): Promise<Observation>;

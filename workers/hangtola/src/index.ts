@@ -1,7 +1,8 @@
 /**
  * [INPUT]: 依赖 hono 路由、agents SDK 的 getAgentByName/routeAgentRequest 与 ./agent/hangtola-agent 的 RPC 面
  * [OUTPUT]: 对外提供 HTTP API（/api/boards*）、Agent ws 路由与健康检查；编辑鉴权走 X-Edit-Ref 头
- * [POS]: workers/hangtola 的唯一入口：路由零业务逻辑，全部薄封装到 DO 方法（P5 的 MCP 复用同一面）
+ * [POS]: workers/hangtola 的唯一入口：路由零业务逻辑，全部薄封装到 DO 方法（P5 的 MCP 复用同一面）。
+ *        亦是成本边界：editRef 由建榜免费铸出，故写端点的限流与体积闸只能设在此层，按成本量级分三档
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -13,6 +14,7 @@ import { HangtolaAgent } from './agent/hangtola-agent.js';
 import { GenerateBoardWorkflow } from './workflows/generate-board.js';
 import { handleMcp } from './mcp/tools.js';
 import { ingestImageFromUrl } from './http/ingest.js';
+import { MAX_ASSET_BYTES } from './limits.js';
 
 export { HangtolaAgent, GenerateBoardWorkflow };
 
@@ -23,8 +25,21 @@ const editRef = (c: { req: { header: (name: string) => string | undefined } }): 
 
 const agentOf = (env: Env, boardId: string) => getAgentByName(env.HANGTOLA_AGENT, boardId);
 
+/* ---- 成本闸：写端点零鉴权，故按 IP 限流于成本发生处 ----
+   键取 cf-connecting-ip（边缘注入，客户端不可伪造）；取不到则退回单一常量键，
+   宁可让匿名流量共享一个更严的桶，也不放行——失败开放在计费端点上是错的。 */
+const clientKey = (c: { req: { header: (name: string) => string | undefined } }): string =>
+  c.req.header('cf-connecting-ip') ?? 'unknown';
+
+async function gate(limiter: RateLimit, c: { req: { header: (n: string) => string | undefined } }):
+  Promise<boolean> {
+  const { success } = await limiter.limit({ key: clientKey(c) });
+  return success;
+}
+
 /* ---- 建榜：返回 editRef（仅此一次）与两类链接 ---- */
 app.post('/api/boards', async (c) => {
+  if (!await gate(c.env.RL_BOARD, c)) return c.json({ error: 'rate-limited' }, 429);
   const boardId = newBoardId();
   const agent = await agentOf(c.env, boardId);
   const result = await agent.ensureBoard(boardId);
@@ -83,6 +98,7 @@ app.get('/api/boards/:id/revisions', async (c) => {
 
 /* ---- 自然语言修改 ---- */
 app.post('/api/boards/:id/chat', async (c) => {
+  if (!await gate(c.env.RL_MODEL, c)) return c.json({ error: 'rate-limited' }, 429);
   const agent = await agentOf(c.env, c.req.param('id'));
   const { message } = await c.req.json<{ message: string }>();
   const result = await agent.chatRpc(editRef(c), message);
@@ -92,6 +108,7 @@ app.post('/api/boards/:id/chat', async (c) => {
 
 /* ---- 主题生成（P2 文字管线；P3 换可恢复 Workflow） ---- */
 app.post('/api/boards/:id/generate', async (c) => {
+  if (!await gate(c.env.RL_MODEL, c)) return c.json({ error: 'rate-limited' }, 429);
   const agent = await agentOf(c.env, c.req.param('id'));
   const input = await c.req.json<{ topic: string; extraText?: string }>();
   const result = await agent.generateRpc(editRef(c), input);
@@ -101,6 +118,7 @@ app.post('/api/boards/:id/generate', async (c) => {
 
 /* ---- 资产：DO 发一次性令牌 → Worker 中转写 R2 → 公开读透 ---- */
 app.post('/api/boards/:id/assets/prepare', async (c) => {
+  if (!await gate(c.env.RL_ASSET, c)) return c.json({ error: 'rate-limited' }, 429);
   const boardId = c.req.param('id');
   const agent = await agentOf(c.env, boardId);
   const { files } = await c.req.json<{ files: { name: string; mime: string }[] }>();
@@ -116,6 +134,7 @@ app.post('/api/boards/:id/assets/prepare', async (c) => {
 
 /* ---- 网图入境：URL 是来源不是存储——服务器抓取校验转 R2 资产 ---- */
 app.post('/api/boards/:id/assets/from-url', async (c) => {
+  if (!await gate(c.env.RL_ASSET, c)) return c.json({ error: 'rate-limited' }, 429);
   const agent = await agentOf(c.env, c.req.param('id'));
   const { url, name } = await c.req.json<{ url: string; name?: string }>();
   const result = await ingestImageFromUrl(c.env, agent, editRef(c), url ?? '', name);
@@ -127,11 +146,17 @@ app.post('/api/boards/:id/assets/from-url', async (c) => {
 });
 
 app.put('/api/uploads/:boardId/:assetId', async (c) => {
+  if (!await gate(c.env.RL_ASSET, c)) return c.json({ error: 'rate-limited' }, 429);
+  /* 声明值先挡一道：arrayBuffer() 是全量入内存，读完再判断时 128MB isolate 已经受害。
+     Content-Length 可伪造或缺失，故读后仍需二次校验——两道都要，缺一不可。 */
+  const declared = Number(c.req.header('content-length') ?? '0');
+  if (declared > MAX_ASSET_BYTES) return c.json({ error: 'too-large', maxBytes: MAX_ASSET_BYTES }, 413);
   const agent = await agentOf(c.env, c.req.param('boardId'));
   const verified = await agent.verifyAssetUpload(c.req.param('assetId'), c.req.query('token') ?? '');
   if (!verified.ok) return c.json({ error: 'forbidden' }, 403);
   const body = await c.req.arrayBuffer();
   if (body.byteLength === 0) return c.json({ error: 'empty-body' }, 400);
+  if (body.byteLength > MAX_ASSET_BYTES) return c.json({ error: 'too-large', maxBytes: MAX_ASSET_BYTES }, 413);
   await c.env.ASSETS.put(verified.r2Key, body, { httpMetadata: { contentType: verified.mime } });
   await agent.markAssetUploaded(c.req.param('assetId'));
   return c.json({ ok: true }, 201);

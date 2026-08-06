@@ -2,7 +2,7 @@
  * [INPUT]: 依赖 cloudflare:workers 的 WorkflowEntrypoint、agents 的 getAgentByName、R2 资产、三个模型边界与 @hangtola/domain 的 enforceGrounding
  * [OUTPUT]: 对外提供 GenerateBoardWorkflow：parse → vision(每图一步·6 路并发) → curate(纯代码) → evidence(批次) → synthesize → commit 的可恢复生成管线
  * [POS]: 长任务的容错壳——步骤重试与断点续跑由平台保证；无捏造在 curate/enforceGrounding 代码层强制；进度经 DO 广播。
- *        并发闸与体积闸皆由 Workers 运行时约束反推（6 连接 / 128MB isolate），非经验值
+ *        并发闸与体积闸皆由 Workers 运行时约束反推（6 连接 / 128MB isolate），非经验值，统一取自 ../limits
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -13,6 +13,7 @@ import type { Env } from '../env.js';
 import { createVisionClient, type Observation } from '../models/vision.js';
 import { createSearchClient } from '../models/exa.js';
 import { createModelClient, type Candidate } from '../models/deepseek.js';
+import { VISION_CONCURRENCY, MAX_ASSET_BYTES } from '../limits.js';
 
 export interface GenerateParams {
   boardId: string;
@@ -26,12 +27,6 @@ type ObsResult =
 
 const RETRIES = { retries: { limit: 2, delay: '2 seconds', backoff: 'exponential' } } as const;
 
-/* Workers 单次调用最多 6 条连接同时等响应头，第 7 条只排队不报错——闸开到 6 即触顶，再大是自欺。
-   实测阿里 MaaS 侧 12 路并发零限流，瓶颈全在 Workers 这边。 */
-const VISION_CONCURRENCY = 6;
-/* 128MB isolate 内存护栏：单图在 base64 链路上的峰值约为自身 4~5 倍（buffer + binary + base64 + dataUrl），
-   6 路并发下 6MB 是安全上限。Web 端已压到长边 1280，此闸只拦 MCP/API 直传的漏网原图。 */
-const MAX_VISION_BYTES = 6 * 1024 * 1024;
 
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -71,7 +66,7 @@ export class GenerateBoardWorkflow extends WorkflowEntrypoint<Env, GenerateParam
           const obs = await step.do(`vision-${i}`, RETRIES, async () => {
             const object = await this.env.ASSETS.get(asset.r2Key);
             if (!object) throw new Error(`asset ${asset.id} 不在 R2`);
-            if (object.size > MAX_VISION_BYTES) throw new Error(`asset ${asset.id} 超出识图体积上限`);
+            if (object.size > MAX_ASSET_BYTES) throw new Error(`asset ${asset.id} 超出识图体积上限`);
             const dataUrl = `data:${asset.mime};base64,${toBase64(await object.arrayBuffer())}`;
             return createVisionClient(this.env).observe(dataUrl, asset.name);
           }) as Observation;

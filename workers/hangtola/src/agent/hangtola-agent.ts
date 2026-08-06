@@ -26,6 +26,7 @@ import { DDL, type RevisionRow, type AssetRow } from './sql.js';
 import { createModelClient } from '../models/deepseek.js';
 import { createVisionClient } from '../models/vision.js';
 import { createSearchClient } from '../models/exa.js';
+import { MAX_PREPARE_FILES } from '../limits.js';
 import { draftToV2, type DraftShape } from '@hangtola/domain';
 
 interface Generation {
@@ -321,11 +322,14 @@ export class HangtolaAgent extends Agent<Env, PublicState> {
   async prepareAssets(editKey: string, files: { name: string; mime: string }[]):
     Promise<{ ok: false } | { ok: true; assets: { assetId: string; token: string }[] }> {
     if (!(await this.verifyEdit(editKey))) return { ok: false };
+    /* 批量闸设在 DO 内而非路由层：DO 是资产态的唯一权威，MCP 与 HTTP 两条路径都必经此处。
+       无闸时一次调用即可灌入任意行数 SQLite——超出的部分静默丢弃，不为越界请求扩容。 */
+    const accepted = files.slice(0, MAX_PREPARE_FILES);
     const boardId = this.#metaGet('board_id')!;
     const maxRows = this.sql`SELECT COALESCE(MAX(order_index), -1) AS max_index FROM assets` as { max_index: number }[];
     let orderIndex = (maxRows[0]?.max_index ?? -1) + 1;
     const assets: { assetId: string; token: string }[] = [];
-    for (const file of files) {
+    for (const file of accepted) {
       if (!file.mime.startsWith('image/')) continue;
       const assetId = `ast_${newRevisionId().slice(4)}`.slice(0, 20);
       const token = newEditKey();

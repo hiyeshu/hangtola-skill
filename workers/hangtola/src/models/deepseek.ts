@@ -1,7 +1,9 @@
 /**
- * [INPUT]: 依赖 ai（generateObject）、@ai-sdk/openai-compatible（DeepSeek 端点）、@hangtola/domain 的 schema 与常量
+ * [INPUT]: 依赖 ai（generateObject）、@ai-sdk/openai-compatible（DeepSeek 端点）、@hangtola/domain 的 schema 与常量、../limits 的 REVISE_TIMEOUT_MS
  * [OUTPUT]: 对外提供 createModelClient：draftBoard（主题→旧形状草稿）与 reviseOps（自然语言→PatchOp[]，一次修复），及确定性 MOCK 桩
- * [POS]: workers/hangtola 的模型边界：DO 只面向此接口，真模型与桩可切换；无捏造由上层 domain 兜底
+ * [POS]: workers/hangtola 的模型边界：DO 只面向此接口，真模型与桩可切换；无捏造由上层 domain 兜底。
+ *        三条链路一律关思考（实测 6~12 倍延迟差，结构化通过率不变）；
+ *        reviseOps 是唯一跑在 DO 交互路径上的调用，故只有它带止损
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,6 +17,7 @@ import {
   type BoardDocumentV2T,
   type PatchOpT,
 } from '@hangtola/domain';
+import { REVISE_TIMEOUT_MS } from '../limits.js';
 
 export interface WorkerEnv {
   MOCK_MODELS?: string;
@@ -84,19 +87,29 @@ const ReviseSchema = z.object({
 /* ============================================================
    真实客户端：DeepSeek via openai 兼容端点
    ============================================================ */
+/* V4-Flash 默认开思考，此处显式关闭——三条链路一致，不按路径分档。
+   实测中位（n=3，关 / low / high）：定档 3.5s / 42.8s / 34.8s，改榜 1.07s / 14.1s / 6.7s，
+   JSON 结构化输出三档均 3/3 通过。关思考换来 6~12 倍延迟收益，而定档质量由
+   domain 侧的 enforceGrounding 与 pool 回收兜底，不靠模型独自沉思。
+   注：low 档比 high 更慢、思考 token 更多，reasoning_effort 不可信，故只用开/关二值。
+   与 vision.ts 的 enable_thinking:false 同一范式——本仓所有结构化输出调用一律关思考。 */
+const NO_THINK = { deepseek: { thinking: { type: 'disabled' } } } as const;
+
 function realClient(env: WorkerEnv): ModelClient {
   const provider = createOpenAICompatible({
     name: 'deepseek',
     baseURL: env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com/v1',
     apiKey: env.DEEPSEEK_API_KEY ?? '',
   });
-  const model = provider(env.DEEPSEEK_MODEL ?? 'deepseek-chat');
+  /* 旧别名 deepseek-chat 已于 2026-07-24 停用，且它指向的正是本模型的非思考模式 */
+  const model = provider(env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash');
 
   return {
     async draftBoard({ topic, extraText }) {
       const { object } = await generateObject({
         model,
         schema: DraftSchema,
+        providerOptions: NO_THINK,
         prompt: [
           `你是"夯到拉"排行榜（中文梗版 tier list）的定档专家。五档从强到弱：夯（超神，稀缺≤20%）、顶级、人上人、NPC（平庸）、拉完了（有明确硬伤）。`,
           `主题：${topic}`,
@@ -113,6 +126,7 @@ function realClient(env: WorkerEnv): ModelClient {
       const { object } = await generateObject({
         model,
         schema: DraftSchema,
+        providerOptions: NO_THINK,
         prompt: [
           `你是"夯到拉"排行榜的定档专家。五档从强到弱：夯（超神，稀缺≤20%）、顶级、人上人、NPC（平庸）、拉完了（有明确硬伤）。`,
           `主题：${topic}`,
@@ -138,7 +152,15 @@ function realClient(env: WorkerEnv): ModelClient {
       ].filter(Boolean).join('\n');
 
       const attempt = async (hint = ''): Promise<ReviseResult> => {
-        const { object } = await generateObject({ model, schema: ReviseSchema, prompt: prompt(hint) });
+        const { object } = await generateObject({
+          model,
+          schema: ReviseSchema,
+          providerOptions: NO_THINK,
+          /* 唯一跑在 DO 交互路径上的模型调用：用户在 ws 那头等，不能无限期挂着。
+             失败会重来一次，故最坏挂起 2×REVISE_TIMEOUT_MS，超时落到下面的兜底回复 */
+          abortSignal: AbortSignal.timeout(REVISE_TIMEOUT_MS),
+          prompt: prompt(hint),
+        });
         return { ok: true, ops: object.ops, summary: object.summary, reply: object.summary };
       };
       try {

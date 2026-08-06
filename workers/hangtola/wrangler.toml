@@ -1,5 +1,5 @@
 # [INPUT]: 依赖 src/index.ts 入口、HangtolaAgent Durable Object 与（P3 起）R2/Workflow 绑定
-# [OUTPUT]: 对外提供 hangtola-agent Worker 运行时配置：DO SQLite 迁移、nodejs 兼容、模型密钥经 wrangler secret 注入
+# [OUTPUT]: 对外提供 hangtola-agent Worker 运行时配置：DO SQLite 迁移、nodejs 兼容、三档成本限流、模型密钥经 wrangler secret 注入
 # [POS]: workers/hangtola 的部署真相源；P6 前与根 wrangler.toml（assets-only 生产）并存，届时接管 hangtola.app
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
@@ -33,10 +33,41 @@ name = "hangtola-generate"
 binding = "GEN_WORKFLOW"
 class_name = "GenerateBoardWorkflow"
 
+# 三档限流：所有写端点零鉴权（editRef 由建榜免费铸出），故闸必须设在成本发生处。
+# 注意其语义——per-colo 计数、刻意宽松、官方明示「不是精确记账系统」：
+# 这是挡脚本的第一道闸，不是配额保证。真配额需账户体系或 Turnstile。
+# period 仅接受 10 或 60。
+
+# 建榜 = 造一个 DO 实例（永久存在，不可回收）
+[[ratelimits]]
+name = "RL_BOARD"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+# 生成/聊天 = 烧 Qwen + DeepSeek + Exa 真金，单价比其余高两个数量级。
+# 30 是权衡后的定值：聊天改榜是高频交互（一次改榜常连发数条），压太紧会误伤真实编辑节奏。
+[[ratelimits]]
+name = "RL_MODEL"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+# 资产写入 = 吃 R2 存储与 Class A 操作；须容纳一次多图批量上传，故放宽
+[[ratelimits]]
+name = "RL_ASSET"
+namespace_id = "1003"
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
 [vars]
 # 生产走真模型（密钥经 wrangler secret 注入：DEEPSEEK_API_KEY / VISION_API_KEY / EXA_API_KEY）；本地 .dev.vars 以 MOCK_MODELS=1 覆盖为确定性桩
 MOCK_MODELS = "0"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-DEEPSEEK_MODEL = "deepseek-chat"
+# 旧别名 deepseek-chat 已于 2026-07-24 停用；它当时指向的正是本模型的非思考模式，故行为等价
+DEEPSEEK_MODEL = "deepseek-v4-flash"
 VISION_BASE_URL = "https://ws-gxy1qntoxobkjl4f.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
 VISION_MODEL = "qwen3.7-flash"
